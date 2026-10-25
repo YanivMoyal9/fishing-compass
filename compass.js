@@ -164,7 +164,7 @@ function renderToday() {
 }
 
 /* ---------- spots within a beach: 200 m strips ranked per fish (data/zones/<id>.json, built by zones_score.js) ---------- */
-const ZONES = { "חברת חשמל": "hashmal" }, zoneData = {};
+const zoneData = {}; let zoneIndex = null; // beach name → data/zones/<id>.json (index.json, built by score_all.mjs)
 // Leaflet is loaded only when a beach has spots (vendor copy, cached for offline use; map tiles need the network)
 let leafletP = null, spotMap = null;
 const loadLeaflet = () => leafletP || (leafletP = new Promise((ok, no) => {
@@ -176,9 +176,11 @@ const move = (p, bearing, d) => { const R = 6371000, b = bearing * Math.PI / 180
   return [la2 * 180 / Math.PI, (lo + Math.atan2(Math.sin(b) * Math.sin(r) * Math.cos(la), Math.cos(r) - Math.sin(la) * Math.sin(la2))) * 180 / Math.PI]; };
 const fmtLL = s => `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`;
 async function renderSpots(b) {
-  const el = $("#spots"), id = ZONES[b.name];
+  const el = $("#spots");
+  if (!zoneIndex) { try { zoneIndex = await (await fetch("data/zones/index.json?v=1")).json(); } catch (e) { zoneIndex = {}; } }
+  const id = zoneIndex[b.name];
   if (!id) { el.hidden = true; el.innerHTML = ""; if (spotMap) { spotMap.remove(); spotMap = null; } return; }
-  if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=3`)).json(); } catch (e) { el.hidden = true; return; } }
+  if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=${id === "hashmal" ? 3 : 1}`)).json(); } catch (e) { el.hidden = true; return; } }
   if (state.beach !== b.name) return;
   const z = zoneData[id], month = +state.day.slice(5, 7), winter = [11, 12, 1, 2, 3].includes(month);
   const inSeason = new Set(E.fishFor(b, month).now.map(r => r.sp.id));
@@ -192,7 +194,7 @@ async function renderSpots(b) {
   const fill = v => `hsl(${Math.round(55 - 55 * t(v))} 90% ${Math.round(58 - 10 * t(v))}%)`; // yellow → red = more suitable
   const card = (r, n) => { const s = r.s, ll = `${s.lat},${s.lon}`;
     return `<li class="spot ${E.level(r.v).c}"><header><span class="rk">${n}</span><b>${esc(s.place)}</b><span class="rv">${r.v}</span></header>
-      ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}
+      ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}${s.shelter ? `<p class="caution">מים מוגנים מאחורי שובר או במעגן — בדקו שמותר לדוג במקום.</p>` : ""}
       <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>
       <p class="spot-ll">📍 נקודת עמידה (קו המים): <bdi dir="ltr">${fmtLL(s)}</bdi> <button type="button" class="copy-ll" data-ll="${fmtLL(s)}">העתקה</button></p>
       <p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a> · <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Google Maps</a> · <button type="button" class="show-on-map" data-i="${r.i}">הצגה במפה</button></p></li>`; };
@@ -235,7 +237,7 @@ async function renderSpots(b) {
     if (n) L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "spot-pin", html: `<b>${n}</b>`, iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, title: `#${n} ${s.place}` })
       .bindPopup(popup(s, v, n)).on("click", () => pick(i)).addTo(map);
   });
-  map.fitBounds(L.latLngBounds(pts), { padding: [12, 12] });
+  map.fitBounds(L.latLngBounds(pts), { padding: [28, 28] });
   map._spot = { focus: i => { const pg = layers[i]; if (!pg) return; map.setView(pg.getBounds().getCenter(), 17); pg.openPopup(); pick(i); } };
   // where am I: the strip nearest to the phone's location
   const Loc = L.Control.extend({ options: { position: "topright" }, onAdd() { const btn = L.DomUtil.create("button", "spot-locate"); btn.type = "button"; btn.textContent = "📍 איפה אני";
