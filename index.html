@@ -26,7 +26,7 @@
 <script src="data/beaches.js?v=3" defer></script>
 <script src="engine.js?v=2" defer></script>
 <script src="forecast.js?v=2" defer></script>
-<script src="script.js?v=17" defer></script>
+<script src="script.js?v=18" defer></script>
 <script src="bubbles.js?v=3" defer></script>
 <script src="compass.js?v=5" defer></script>
 </head>
@@ -154,37 +154,6 @@
 <div class="empty-state" id="emptyState" hidden><span aria-hidden="true">⌁</span><h3>לא נמצאו דמויים בסינון הזה</h3><p>אפשר לבחור דג, סוג או חודש אחר.</p><button type="button" id="emptyReset">הצג את כל הדמויים</button></div>
 </section>
 
-<section class="suggest container" id="suggest" aria-labelledby="suggest-title">
-<div class="suggest-head">
-<div><span class="section-kicker">הארסנל גדל מהשטח</span><h2 id="suggest-title">יש לך דמוי שעובד? או תיקון?</h2>
-<p>מלאו את הפרטים ושלחו. כל פנייה נבדקת, ודמויים שמתאימים נכנסים למדריך.</p></div>
-</div>
-<form class="suggest-form" id="suggestForm" novalidate>
-<fieldset class="sf-kind"><legend class="sf-label">סוג הפנייה</legend>
-<label class="sf-radio"><input type="radio" name="kind" value="new" id="kindNew" checked> דמוי חדש</label>
-<label class="sf-radio"><input type="radio" name="kind" value="fix" id="kindFix"> תיקון לדמוי קיים</label>
-</fieldset>
-<div class="sf-row" id="fixRow" hidden><label class="sf-field"><span class="sf-label">איזה דמוי לתקן?</span><select id="sfExisting"></select></label></div>
-<div class="sf-grid">
-<label class="sf-field"><span class="sf-label">שם הדמוי ודגם <em>*</em></span><input id="sfName" maxlength="120" type="text" required placeholder="למשל: Duo Tide Minnow 125" autocomplete="off"></label>
-<label class="sf-field"><span class="sf-label">משקל / גודל</span><input id="sfSize" maxlength="60" type="text" placeholder="למשל: 20 גרם · 125 מ״מ" autocomplete="off"></label>
-</div>
-<fieldset class="sf-field"><legend class="sf-label">סוג הדמוי</legend><div class="sf-chips" id="sfType"></div></fieldset>
-<label class="sf-field"><span class="sf-label">שיטת עבודה <em>*</em></span><textarea id="sfMethod" maxlength="1500" rows="3" required placeholder="איך זורקים ומחזירים: קצב, טוויצ׳ים, עצירות, הקפצות..."></textarea></label>
-<fieldset class="sf-field"><legend class="sf-label">דגי מטרה</legend><div class="sf-chips" id="sfFish"></div><input id="sfFishOther" type="text" placeholder="דגים נוספים (לא חובה)" autocomplete="off"></fieldset>
-<fieldset class="sf-field"><legend class="sf-label">עונה</legend>
-<div class="sf-months" id="sfMonths"></div>
-<label class="sf-check"><input type="checkbox" id="sfAllYear"> עובד כל השנה</label></fieldset>
-<div class="sf-grid">
-<label class="sf-field"><span class="sf-label">אזור דיג</span><input id="sfZone" maxlength="120" type="text" placeholder="חול, ריף, קצף, מזח..." autocomplete="off"></label>
-<label class="sf-field"><span class="sf-label">השם שלך (לא חובה)</span><input id="sfFrom" maxlength="80" type="text" autocomplete="name"></label>
-</div>
-<label class="sf-field"><span class="sf-label">הערות</span><textarea id="sfNotes" maxlength="1500" rows="2" placeholder="צבע מומלץ, תנאי ים, טיפים..."></textarea></label>
-<label class="sf-hp" aria-hidden="true">אל תמלאו שדה זה<input id="sfHp" type="text" tabindex="-1" autocomplete="off"></label>
-<p class="sf-error" id="sfError" role="alert" hidden></p>
-<div class="sf-actions"><button type="submit" class="sf-send">שליחת הפנייה</button><button type="button" class="sf-copy" id="sfCopy">העתקת הפנייה</button><span class="sf-status" id="sfStatus" role="status"></span></div>
-</form>
-</section>
 </div>
 
 <!-- יומן -->
