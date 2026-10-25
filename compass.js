@@ -173,7 +173,7 @@ function fishRow({ sp, peak, tempNote }, month, water) {
     ${tempNote ? `<p class="warn">🌡️ ${tempNote}</p>` : ""}
     ${sp.min ? `<p class="min">מינימום חוקי: ${sp.min} ס״מ</p>` : ""}
     ${sp.note ? `<p class="note">${esc(sp.note)}</p>` : ""}
-    ${SEASON_DISPUTE[sp.id] ? `<p class="note">⚖️ ${esc(SEASON_DISPUTE[sp.id])}</p>` : ""}
+    ${sp.src ? `<p class="latin">מקור העונה: ${esc(sp.src)}</p>` : ""}
     ${sp.legal && sp.legal[water] ? `<p class="warn">⚖️ ${esc(sp.legal[water])}</p>` : ""}
   </article>`;
 }

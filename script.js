@@ -1,15 +1,15 @@
 const lures = [
-{id:1,name:'Ima Nabarone',type:'minnow',typeLabel:'מינו',image:'ima-nabarone.webp',subtitle:'מינו יפני עם כפית',fish:['ברקודה','לוקוס','פלמידה'],methods:['גלגול בקצב בינוני.','לעצור מדי פעם; התקיפה יכולה להגיע דווקא בזמן העצירה.'],preview:'גלגול בינוני עם עצירות קצרות',area:'מהחוף',months:null},
-{id:2,name:'Bassday Sugapen',type:'topwater',typeLabel:'טופ ווטר',image:'bassday-sugapen.webp',subtitle:'פנסיל על פני המים',fish:['לברק','חניתן','טרכון'],methods:['לעבוד על פני המים, במיוחד בחופים.','טוויצ׳ים קצובים בשפיץ החכה ליצירת תנועה מצד לצד.'],preview:'טוויצ׳ים קצובים על פני המים',area:'חופים',months:[11,12,1,2,3,4,5,6,7]},
-{id:3,name:'Bassday S.P.M 90',type:'minnow',typeLabel:'פנסיל',image:'bassday-spm-90.webp',subtitle:'פנסיל 90 מ״מ',fish:['לברק','חניתן','טרכון'],methods:['לזרוק מהחוף או מהריף.','לעבוד בטוויצ׳ים כך שהדמוי יברח לצדדים כמו דג פצוע.'],preview:'טוויצ׳ים מהחוף או מהריף',area:'חופים וריפים',months:null},
-{id:4,name:'Ima Cobra 60',type:'topwater',typeLabel:'טופ ווטר',image:'ima-cobra-60.webp',subtitle:'Walk the dog',fish:['לברק','טרכון','חניתן'],methods:['טוויצ׳ים רציפים בשפיץ החכה תוך כדי גלגול איטי.','לשמור על תנועת זיגזג רציפה על פני המים.'],preview:'טוויצ׳ים רציפים וגלגול איטי',area:'פני המים',months:null},
+{id:1,name:'Ima Nabarone',type:'minnow',typeLabel:'מינו',image:'ima-nabarone.webp',subtitle:'מינו יפני עם כפית',fish:['ברקודה','לוקוס','פלמידה'],methods:['גלגול בקצב בינוני.','לעצור מדי פעם; התקיפה יכולה להגיע דווקא בזמן העצירה.'],preview:'גלגול בינוני עם עצירות קצרות',area:'מהחוף',months:[1,2,4,5,6,7,8,9,10,11,12]},
+{id:2,name:'Bassday Sugapen',type:'topwater',typeLabel:'טופ ווטר',image:'bassday-sugapen.webp',subtitle:'פנסיל על פני המים',fish:['לברק','חניתן','טרכון'],methods:['לעבוד על פני המים, במיוחד בחופים.','טוויצ׳ים קצובים בשפיץ החכה ליצירת תנועה מצד לצד.'],preview:'טוויצ׳ים קצובים על פני המים',area:'חופים',months:[1,2,3,5,6,7,8,9,10,11,12]},
+{id:3,name:'Bassday S.P.M 90',type:'minnow',typeLabel:'פנסיל',image:'bassday-spm-90.webp',subtitle:'פנסיל 90 מ״מ',fish:['לברק','חניתן','טרכון'],methods:['לזרוק מהחוף או מהריף.','לעבוד בטוויצ׳ים כך שהדמוי יברח לצדדים כמו דג פצוע.'],preview:'טוויצ׳ים מהחוף או מהריף',area:'חופים וריפים',months:[1,2,3,5,6,7,8,9,10,11,12]},
+{id:4,name:'Ima Cobra 60',type:'topwater',typeLabel:'טופ ווטר',image:'ima-cobra-60.webp',subtitle:'Walk the dog',fish:['לברק','טרכון','חניתן'],methods:['טוויצ׳ים רציפים בשפיץ החכה תוך כדי גלגול איטי.','לשמור על תנועת זיגזג רציפה על פני המים.'],preview:'טוויצ׳ים רציפים וגלגול איטי',area:'פני המים',months:[1,2,3,5,6,7,8,9,10,11,12]},
 {id:5,name:'Ima Issen 45S',type:'minnow',typeLabel:'מינו שוקע',image:'ima-issen-45s.webp',subtitle:'45 מ״מ · לריפים',fish:['סרגוס','לוקוס','כחילה','צ׳יפורה'],methods:['גלגול רציף במהירות בינונית.','לעבוד באזורי ריף עם קצף וסלעים.'],preview:'גלגול בינוני באזורי קצף וסלעים',area:'ריפים',months:null},
-{id:6,name:'Ima Sukari 37S',type:'minnow',typeLabel:'מינו שוקע',image:'ima-sukari-37s.webp',subtitle:'37 מ״מ · אולטרה לייט',fish:['סרגוס','צ׳יפורה','כחילה'],methods:['גלגול רציף בקצב בינוני.','להוסיף טוויצ׳ים קטנים מדי פעם.'],preview:'גלגול בינוני וטוויצ׳ים קטנים',area:'ריפים או חוף חולי',months:[3,4,5,6,7,8,9],seasonName:'עונת האולטרה לייט'},
-{id:7,name:'Major Craft Jigpara TG',type:'jig',typeLabel:'ג׳יג',image:'jigpara-tg-14g.webp',subtitle:'14 גרם · טונגסטן',fish:['טרכון','גומבר','חניתן','כחילה','טונית'],methods:['לזרוק למרחק הרצוי; המבנה הקומפקטי והטונגסטן מסייעים לזריקה רחוקה.','לתת לג׳יג לשקוע לעומק הרצוי ואז לגלגל עם הקפצות.'],preview:'זריקה רחוקה וגלגול עם הקפצות',area:'מהחוף',months:null},
-{id:8,name:'Zeake R Sardine',type:'jig',typeLabel:'ג׳יג',image:'zeake-r-sardine-20g.webp',subtitle:'20 גרם · מומלץ בצבע זברה גלואו',fish:['טרכון','חניתן','פלמידה','טונית','בייבי אנטיאס'],methods:['לבצע שתיים עד שלוש הקפצות.','לעצור, לגלגל ולחזור על הרצף.'],preview:'2–3 הקפצות, עצירה וגלגול',area:'מהחוף',months:null},
+{id:6,name:'Ima Sukari 37S',type:'minnow',typeLabel:'מינו שוקע',image:'ima-sukari-37s.webp',subtitle:'37 מ״מ · אולטרה לייט',fish:['סרגוס','צ׳יפורה','כחילה'],methods:['גלגול רציף בקצב בינוני.','להוסיף טוויצ׳ים קטנים מדי פעם.'],preview:'גלגול בינוני וטוויצ׳ים קטנים',area:'ריפים או חוף חולי',months:[1,2,3,4,5,9,10,11,12],seasonName:'עונת האולטרה לייט'},
+{id:7,name:'Major Craft Jigpara TG',type:'jig',typeLabel:'ג׳יג',image:'jigpara-tg-14g.webp',subtitle:'14 גרם · טונגסטן',fish:['טרכון','גומבר','חניתן','כחילה','טונית'],methods:['לזרוק למרחק הרצוי; המבנה הקומפקטי והטונגסטן מסייעים לזריקה רחוקה.','לתת לג׳יג לשקוע לעומק הרצוי ואז לגלגל עם הקפצות.'],preview:'זריקה רחוקה וגלגול עם הקפצות',area:'מהחוף',months:[1,5,6,7,8,9,10,11,12]},
+{id:8,name:'Zeake R Sardine',type:'jig',typeLabel:'ג׳יג',image:'zeake-r-sardine-20g.webp',subtitle:'20 גרם · מומלץ בצבע זברה גלואו',fish:['טרכון','חניתן','פלמידה','טונית','בייבי אנטיאס'],methods:['לבצע שתיים עד שלוש הקפצות.','לעצור, לגלגל ולחזור על הרצף.'],preview:'2–3 הקפצות, עצירה וגלגול',area:'מהחוף',months:[1,2,5,6,7,8,9,10,11,12]},
 {id:9,name:'Fiiish Black Minnow Candy',type:'soft',typeLabel:'סיליקון',image:'black-minnow-candy.webp',subtitle:'10 גרם · גלואו',fish:['לברק','לוקוס'],methods:['לזרוק ולהמתין שהדמוי ירד לקרקעית.','שלושה גלגולים, עצירה, וחזרה על הרצף. המטרה היא לעבוד קרוב לקרקעית.'],preview:'קרוב לקרקעית: שלושה גלגולים ועצירה',area:'קרוב לקרקעית',months:null},
 {id:10,name:'Fiiish Black Minnow Red Head',type:'soft',typeLabel:'סיליקון',image:'black-minnow-red-head.webp',subtitle:'10 גרם · ראש אדום',fish:['לברק','לוקוס'],methods:['לזרוק ולהמתין שהדמוי ירד לקרקעית.','שלושה גלגולים, עצירה, וחזרה על הרצף.'],preview:'שלושה גלגולים ועצירה ליד הקרקעית',area:'קרוב לקרקעית',note:'הראש האדום הוא צבע בולט לימים עם מים עכורים.',months:null},
-{id:11,name:'Ragot Raglou Hybrid',type:'soft',typeLabel:'סיליקון',image:'raglou-hybrid.webp',subtitle:'4.5 גרם · זנב פדל',fish:['לברק','לוקוס','טרכון'],methods:['גלגול רצוף ואיטי.','תנועת הזנב נוצרת בזמן הגלגול; אין צורך להוסיף הרבה אקשן.'],preview:'גלגול איטי ורצוף',area:'לפי עומק הזריקה',months:[11,12,1,2,3,4,5,6,7],seasonName:'עונת הלברקים'}
+{id:11,name:'Ragot Raglou Hybrid',type:'soft',typeLabel:'סיליקון',image:'raglou-hybrid.webp',subtitle:'4.5 גרם · זנב פדל',fish:['לברק','לוקוס','טרכון'],methods:['גלגול רצוף ואיטי.','תנועת הזנב נוצרת בזמן הגלגול; אין צורך להוסיף הרבה אקשן.'],preview:'גלגול איטי ורצוף',area:'לפי עומק הזריקה',months:null}
 ];
 
 const MONTH_NAMES=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -17,27 +17,27 @@ const MONTH_SHORT=['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני'
 const NOW=new Date().getMonth()+1;
 
 const state={type:'all',fish:'all',month:'all',search:''};
-/* ---- Fish seasons (Israeli shore, as checked by the site owner). m = season, p = peak; ranges wrap over the new year ---- */
+/* ---- Fish seasons (26/10: from the collected data — Cormorant monthly calendar + Strike Point for the current month). m = season, p = peak ---- */
 const span=(a,b)=>{const r=[];let m=a;for(;;){r.push(m);if(m===b)break;m=m%12+1}return r};
 const ALL=span(1,12);
 const FISH=[
-{k:'סרגוס',label:'סרגוסים',m:ALL,p:span(5,8)},
-{k:'מוסר',label:'מוסרים',m:span(6,10)},
-{k:'בן גוריון',label:'בן גוריון',m:span(6,10)},
+{k:'סרגוס',label:'סרגוסים',m:[1,2,3,4,5,9,10,11,12],p:[1,2,10,11,12]},
+{k:'מוסר',label:'מוסרים',m:[1,2,3,4,10,11,12]},
+{k:'בן גוריון',label:'בן גוריון',m:[6,7,8,9,10]},
 {k:'אריען',label:'אריענים',m:span(8,1)},
-{k:'חניתן',label:'חניתנים',m:span(6,10)},
+{k:'חניתן',label:'חניתנים',m:[5,6,7,8,9,10],p:[6,7,8,10]},
 {k:'בייבי אנטיאס',label:'בייבי אנטיאס',m:span(8,9)},
-{k:'טרכון',label:'טרכונים',m:span(5,10)},
-{k:'טלוויזיה',label:'טלוויזיות',m:span(6,9),note:'עד תחילת ספטמבר'},
-{k:'גומבר',label:'גומברים',m:ALL,p:[6,10,11,12,1]},
-{k:'קלמרי',label:'קלמארי',m:span(10,6)},
-{k:'אנטיאס',label:'אנטיאסים',m:span(9,3)},
-{k:'דוראדו',label:'דוראדו',m:span(9,3)},
-{k:'פלמידה',label:'פלמידה',m:span(9,3),p:[1,2]},
-{k:'לברק',label:'לברקים',m:span(11,5),p:[3]},
-{k:'לוקוס',label:'לוקוסים',m:ALL,p:[12,1,2]},
-{k:'טונית',label:'טוניות',m:span(12,3)},
-{k:'ברקודה',label:'ברקודות',m:span(10,5),p:[12,1,2]}
+{k:'טרכון',label:'טרכונים',m:[6,7,8,9,10],p:[7,8,9,10]},
+{k:'טלוויזיה',label:'טלוויזיות',m:[6,7,8,9,10],p:[10]},
+{k:'גומבר',label:'גומברים',m:[1,10,11,12],p:[10,11,12]},
+{k:'קלמרי',label:'קלמארי',m:[1,2,3,4,10,11,12],p:[1,2,3,10,12]},
+{k:'אנטיאס',label:'אנטיאסים',m:[1,10,11,12],p:[11,12]},
+{k:'דוראדו',label:'דוראדו',m:[8,9,10,11],p:[9,10]},
+{k:'פלמידה',label:'פלמידה',m:[1,2,9,10,11,12],p:[11,12]},
+{k:'לברק',label:'לברקים',m:[1,2,3,10,11,12],p:[1,2,10,12]},
+{k:'לוקוס',label:'לוקוסים',m:[4,5,6,7,8,9,10,11],p:[10]},
+{k:'טונית',label:'טוניות',m:[7,8,9,10,11],p:[8,9]},
+{k:'ברקודה',label:'ברקודות',m:[4,5,6,7,8,9,10,11],p:[9,10]}
 ];
 const fishInfo=name=>FISH.find(f=>f.k===name);
 function fishStatus(name,month){const f=fishInfo(name);if(!f)return null;if(f.p&&f.p.includes(month))return 'peak';return f.m.includes(month)?'in':'off'}
