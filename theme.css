@@ -1,0 +1,114 @@
+/* מצפן הדייג — שכבת עיצוב אחידה (נטענת אחרונה): צבעים, רווחים, כרטיסים, כותרות, צ׳יפים וניווט בתוך הלשונית */
+:root{
+  --brand:#0e6d74;--brand-ink:#0b4f55;--brand-soft:#e6f2f2;--accent:#e0703f;
+  --bg:#f2f5f5;--surface:#fff;--surface-2:#f6f9f9;--ink:#12303a;--muted:#5d7580;--line:#e1e9ea;
+  --r-lg:18px;--r-md:14px;--r-sm:10px;--pill:999px;
+  --sh-1:0 1px 2px rgba(15,45,55,.05),0 6px 18px rgba(15,45,55,.06);
+  --gap:14px;--appbar-h:64px;
+  --ground:var(--bg);--soft:var(--surface-2);--teal-deep:var(--brand-ink);--top:#11845c
+}
+body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:Heebo,Assistant,sans-serif;letter-spacing:-.01em}
+.hint,.src-note{color:var(--muted);font-size:14px;line-height:1.5}
+.pane{padding-top:12px}
+.pane-title{font:800 26px/1.2 Heebo,sans-serif;margin:8px 0 12px}
+
+/* ---- one card language for every block ---- */
+.card,.beach-head,.card-lite,.sess,.official,.lg-type,.lg-fish,.fish-card,.law,.log-form,.rank-row,.target,.about,.lure-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
+.card-lite{padding:16px 18px;margin:var(--gap) 0}
+.beach-head{padding:16px 18px;margin:var(--gap) 0}
+.about{padding:12px 16px;margin:10px 0}
+.about summary,.off summary,details>summary{cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"";width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin-inline-start:auto;transition:transform .2s}
+details[open]>summary::after{transform:rotate(-135deg)}
+.lg-tips summary::after,.advice summary::after{margin-inline-start:8px}
+
+/* ---- section heads ---- */
+.section-head{display:flex;align-items:center;gap:12px;margin:26px 0 12px;scroll-margin-top:calc(var(--appbar-h) + 56px)}
+.section-head .sh-ico{flex:none;width:40px;height:40px;border-radius:12px;background:var(--brand-soft);display:grid;place-items:center;font-size:20px}
+.section-head h2{margin:0;font:800 21px/1.2 Heebo,sans-serif}
+.section-head p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.card-lite>h2,.lg-head h2{font:800 21px/1.2 Heebo,sans-serif}
+[id]{scroll-margin-top:calc(var(--appbar-h) + 56px)}
+
+/* ---- in-tab navigation ---- */
+.subnav{position:sticky;top:var(--appbar-h);z-index:30;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 0 10px;margin:0 0 4px;background:linear-gradient(var(--bg) 78%,rgba(242,245,245,0))}
+.subnav::-webkit-scrollbar{display:none}
+.subnav a{flex:none;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--pill);padding:7px 14px;font:700 14px Assistant,sans-serif;box-shadow:0 1px 2px rgba(15,45,55,.04)}
+.subnav a:hover,.subnav a:focus-visible{border-color:var(--brand);color:var(--brand-ink)}
+
+/* ---- toolbar (beach + day) ---- */
+.toolbar{padding:12px 14px;margin:6px 0 0}
+.toolbar .picker{margin:0}
+.toolbar .chips{margin:10px 0 0;padding:0}
+
+/* ---- pills and chips: one look ---- */
+.chip,.ft,.lg-chip,.lg-months .nm,.nf,.filter-chip{border-radius:var(--pill)!important}
+.chip.is-on,.lg-months .nm.is-sel{background:var(--brand)!important;border-color:var(--brand)!important;color:#fff!important}
+.chip.is-on small{color:#d6eeee}
+.ft{background:var(--surface-2);border-color:var(--line)}
+
+/* ---- beach header ---- */
+.bh-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.bh-top h2{margin:0;font:900 28px/1.1 Heebo,sans-serif}
+.bh-sub{margin:4px 0 0;color:var(--muted);font-size:14px;font-weight:600}
+.bh-note{margin:8px 0 0;font-size:14px;color:var(--ink)}
+.bh-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.bh-actions a,.bh-actions span{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border-radius:var(--pill);padding:8px 14px;font:700 14px Assistant,sans-serif;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+.bh-actions a.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.bh-top h2{font-size:24px}}
+.tile{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:9px 11px;min-width:0}
+.tile span{display:block;font-size:12px;color:var(--muted);font-weight:700}
+.tile b{display:block;font:800 17px/1.25 Heebo,sans-serif;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile small{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.is-key{background:var(--brand-soft);border-color:#c9e2e2}
+.bh-more{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.bh-more summary{font-size:14px;color:var(--brand-ink)}
+.bh-more p{margin:6px 0;font-size:14px}
+.beach-head .legal{margin:10px 0 0;background:#fff6e8;border:1px solid #f1dbb5;border-radius:var(--r-sm);padding:8px 10px;font-size:14px}
+.beach-head .official{box-shadow:none;margin:12px 0 0;padding:10px 12px;background:var(--surface-2)}
+.boat-toggle{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:8px}
+
+/* ---- sessions ---- */
+.sessions{gap:var(--gap)}
+.sess{border-top-width:6px}
+.advice{background:var(--surface-2);border:1px solid var(--line)}
+
+/* ---- lures tab: compact hero ---- */
+.hero.hero-v3{aspect-ratio:auto!important;min-height:0!important;height:clamp(170px,26vw,260px)!important;border-radius:0 0 var(--r-lg) var(--r-lg)}
+.hero-v3 .hero-bg{background-size:cover!important;background-position:center 30%!important}
+.hero-v3 .hero-content{padding-top:18px!important}
+.hero-v3 h1{font-size:clamp(26px,4.4vw,44px)!important;margin:6px 0!important}
+.hero-v3 p,.hero-v3 .hero-cta{display:none}
+.lure-guide{margin:var(--gap) auto}
+.lg-type,.lg-fish{padding:14px 16px}
+.lg-kit{border-radius:var(--r-md)}
+
+/* ---- fish & rank ---- */
+.fish-card{padding:14px 16px}
+.rank-row{border-inline-start-width:6px}
+.law{padding:14px 18px;margin:var(--gap) 0}
+
+/* ---- dialogs ---- */
+.fish-dialog,.lure-dialog{border-radius:var(--r-lg)!important}
+
+/* ---- lures finder: light card like the rest of the app ---- */
+.now-strip{background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line);border-radius:var(--r-lg)!important;box-shadow:var(--sh-1)}
+.now-label,.nf-label{color:var(--accent)!important}
+.now-button{border-color:var(--brand)!important;color:var(--brand-ink)!important;border-radius:var(--pill)!important;background:transparent}
+.now-button:hover,.now-button[aria-pressed="true"]{background:var(--brand)!important;color:#fff!important}
+.now-strip .nm{border:1px solid var(--line)!important;background:var(--surface-2)!important;color:var(--ink)!important;border-radius:var(--r-sm)!important}
+.now-strip .nm.is-now{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+.now-strip .nm.is-sel{outline:none!important}.now-strip .nm.is-sel:not(.is-now){background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important}
+.now-fish{color:var(--ink)!important}.now-fish>span{color:var(--brand-ink)!important}.now-fish b.pk{color:var(--accent)!important}
+.nf{border:1px solid var(--line)!important;background:var(--surface-2)!important;color:var(--ink)!important}
+.nf:hover{border-color:var(--brand)!important}
+.nf.is-in{border-color:#9fd2c7!important}.nf.is-peak{border-color:var(--accent)!important}
+.nf.is-sel{background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important;outline:none!important}
+.nf-note{background:var(--brand-soft)!important;color:var(--brand-ink)!important}
+.nf-note.is-peak{background:#fdebe2!important;color:#8a3a17!important}.nf-note.is-off{background:var(--surface-2)!important;color:var(--muted)!important}
+.finder h2,.catalog h2{font:800 24px/1.2 Heebo,sans-serif!important;letter-spacing:-.01em!important}
+.now-strip p,.now-text,.now-text p{color:var(--ink)!important}.now-text b{color:var(--brand-ink)!important}

@@ -177,6 +177,40 @@ function navHtml(b) {
     (b.depth ? `<p class="depth">🌊 עומק: ${b.depth.to5 ? `5 מ׳ במרחק ~${b.depth.to5} מ׳` : "—"}${b.depth.to10 ? ` · 10 מ׳ במרחק ~${b.depth.to10} מ׳` : ""}${b.depth.at300 != null ? ` · ב-300 מ׳: ${b.depth.at300} מ׳` : ""} <small>(EMODnet, תא ~115 מ׳)</small></p>` : "") +
     (b.zone ? `<p class="zone">🌡️ ${esc(b.zone)}</p>` : "");
 }
+/* ---------- beach header: name, features, actions, key times and conditions as tiles, details folded ---------- */
+function beachHeadHtml(b, r, gold, best, boat) {
+  const ll = `${b.lat},${b.lon}`, f = (window.BEACH_FEATURES || {})[b.name];
+  const today = state.day === todayKey(), rows = r.rows, T = today ? Date.now() : E.ilTime(state.day, 7);
+  const now = rows.reduce((m, x) => !m || Math.abs(x.T - T) < Math.abs(m.T - T) ? x : m, null);
+  const tide = r.tides.length ? r.tides.slice(0, 2).map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : null;
+  const ltr = v => /^[\d:.\-–· °]+$/.test(v) ? `<bdi dir="ltr">${v}</bdi>` : v; // times and ranges read left to right
+  const tile = (icon, label, val, sub, key) => `<div class="tile${key ? " is-key" : ""}"><span>${icon} ${label}</span><b>${ltr(val)}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  const tiles = [
+    best ? tile("🏆", "השעה הכי טובה", `${String(best.h).padStart(2, "0")}:00`, best.s ? best.s.name : "", true) : null,
+    tile("✨", "שעת הזהב", `${E.hm(gold[0][0])}–${E.hm(gold[0][1])}`, `ערב ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}`),
+    tile("🌅", "זריחה · שקיעה", `${E.hm(r.win.sunrise)} · ${E.hm(r.win.sunset)}`, `אור ראשון ${E.hm(r.win.dawn)} · אחרון ${E.hm(r.win.dusk)}`),
+    tide ? tile("〰️", "גאות ושפל", tide.split(" · ")[0], tide.split(" · ")[1] || "") : null,
+    now && now.sst != null ? tile("🌡️", "מים", `${fmtNum(now.sst, 1)}°`, today ? "עכשיו" : "בבוקר") : null,
+    now && now.wave != null && b.water !== "lake" ? tile("🌊", "גלים", `${fmtNum(now.wave)} ס״מ`, now.per ? `מחזור ${fmtNum(now.per)} שנ׳` : "") : null,
+    now && now.wind != null ? tile("💨", "רוח", `${fmtNum(now.wind)} קמ״ש`, now.dir != null ? "מ" + DIR8(now.dir) : "") : null,
+    now && now.p != null ? tile("🧭", "לחץ", `${fmtNum(now.p)}`, "hPa") : null
+  ].filter(Boolean).slice(0, 8);
+  const more = [
+    b.depth ? `<p>🌊 עומק: ${b.depth.to5 ? `5 מ׳ במרחק ~${b.depth.to5} מ׳` : "—"}${b.depth.to10 ? ` · 10 מ׳ במרחק ~${b.depth.to10} מ׳` : ""}${b.depth.at300 != null ? ` · ב-300 מ׳: ${b.depth.at300} מ׳` : ""} <small class="hint">(EMODnet, תא ~115 מ׳)</small></p>` : "",
+    b.zone ? `<p>🌡️ ${esc(b.zone)}</p>` : "",
+    `<p>🕯️ אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>`
+  ].join("");
+  return `<div class="bh-top"><div><h2>${esc(b.name)}</h2><p class="bh-sub">${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</p></div></div>
+    ${b.note ? `<p class="bh-note">${esc(b.note)}</p>` : ""}
+    ${featuresHtml(b)}
+    ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
+    <div class="bh-actions"><a class="primary" href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">🚗 ניווט ב-Waze</a><a href="https://www.google.com/maps/dir/?api=1&destination=${ll}" target="_blank" rel="noopener">🗺️ Google Maps</a>${b.parking ? `<span>🅿️ חניה ~${b.parking.m} מ׳${b.parking.fee ? " · " + esc(b.parking.fee) : ""}</span>` : ""}</div>
+    <div class="tiles">${tiles.join("")}</div>
+    ${canBoat(b) ? `<label class="boat-toggle"><input type="checkbox" id="boatToggle" ${boat ? "checked" : ""}> מצב סירה (בטא): תנאי ים פתוח ~11 ק״מ מהחוף</label>` : ""}
+    <details class="bh-more"><summary>עוד על החוף: עומק, אזור חם ושעות האור</summary>${more}</details>
+    ${officialHtml(b, state.day)}`;
+}
+
 function renderToday() {
   if (!FC) return;
   const b = beachByName(state.beach); if (!state.day) state.day = todayKey();
@@ -184,15 +218,7 @@ function renderToday() {
   const boat = state.boat && canBoat(b);
   const r = beachDay(b, state.day, boat);
   const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions, r.safeOf);
-  $("#beachHead").innerHTML = `<h2>${esc(b.name)} <small>${esc(b.region)}</small></h2>
-    <p class="beach-meta">${esc(TYPE_NAMES[b.type] || "")}${b.note ? " · " + esc(b.note) : ""}</p>
-    ${featuresHtml(b)}
-    ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
-    ${navHtml(b)}
-    ${canBoat(b) ? `<label class="boat-toggle"><input type="checkbox" id="boatToggle" ${boat ? "checked" : ""}> מצב סירה (בטא): תנאי ים פתוח ~11 ק״מ מהחוף</label>` : ""}
-    <p class="astro">אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>
-    <p class="astro">✨ שעת הזהב ${E.hm(gold[0][0])}–${E.hm(gold[0][1])} · ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}${best ? ` · <b>השעה הכי טובה: ${String(best.h).padStart(2, "0")}:00</b>${best.s ? " (" + best.s.name + ")" : ""}` : ""}</p>
-    ${officialHtml(b, state.day)}`;
+  $("#beachHead").innerHTML = beachHeadHtml(b, r, gold, best, boat);
   const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
   $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
   $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
