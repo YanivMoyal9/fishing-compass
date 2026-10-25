@@ -20,16 +20,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=8">
+<link rel="stylesheet" href="compass.css?v=9">
 <script src="vendor/suncalc.js" defer></script>
 <script src="data/species.js?v=4" defer></script>
 <script src="data/fish-info.js?v=1" defer></script>
+<script src="data/beach-features.js?v=1" defer></script>
 <script src="data/beaches.js?v=3" defer></script>
 <script src="engine.js?v=3" defer></script>
 <script src="forecast.js?v=3" defer></script>
 <script src="script.js?v=19" defer></script>
 <script src="bubbles.js?v=3" defer></script>
-<script src="compass.js?v=12" defer></script>
+<script src="compass.js?v=13" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -80,6 +81,18 @@
 <li>המדד הוא הערכה סטטיסטית. בשטח קובעים גם זרם, צבע המים ונוכחות פיתיון.</li>
 </ul>
 </details>
+<details class="about why-matters">
+<summary>למה התנאים משנים? גלים, לחץ, גאות, טמפ׳ מים וירח</summary>
+<ul>
+<li><b>גלים וסוואל:</b> סוואל (גל ארוך, מחזור של 6 שניות ומעלה) מזיז חול ומערבל מזון — טוב לטורפים, מסוכן על סלעים. גל רוח קצר (3–4 שניות) יוצר ים "קצוץ" שקשה להטיל בו ולהרגיש את הדמוי. ים שקט מאוד (פחות מ-30 ס״מ) = מים צלולים ודגים זהירים. ים עובד (60–100 ס״מ) = מים לבנים מעל שרטונים, והטורפים תוקפים בביטחון.</li>
+<li><b>לחץ ברומטרי:</b> לחץ יורד לפני מערכת הוא בדרך כלל חלון אכילה פעיל. לחץ שעולה מהר אחרי חזית "סוגר" הרבה דגים ליום-יומיים. לחץ יציב — הגורמים האחרים מכריעים.</li>
+<li><b>גאות ושפל:</b> בים התיכון ההפרש קטן (בערך 20–40 ס״מ), אבל הוא משנה זרמים ליד שוברים, בכניסות למרינות ובשפכים. תחילת עליית המים מכניסה מזון לרדודים.</li>
+<li><b>טמפ׳ מים:</b> בסתיו (26–28°) הטורפים הפלגיים נודדים לאורך החוף. בחורף (17–19°) זה הזמן של לברק וגומבר, ומים חמים ליד תחנות כוח מרכזים טורפים. לכל דג טווח מועדף — האפליקציה מסמנת כשהמים קרים או חמים לו.</li>
+<li><b>ירח:</b> ירח מלא — יותר פעילות בלילה (קלאמרי, וברקודה מתחת לאורות). מולד — לילות חשוכים, והשחר והדמדומים חשובים יותר. זריחה או שקיעה של הירח בתוך החלון מוסיפה למדד.</li>
+<li><b>איך האפליקציה משתמשת בזה:</b> מדד הפעילות בכל סשן מחבר את הגאות, הלחץ, הירח, השעה ומצב הים; "מה עושים בתנאים האלה" בכל כרטיס הופך אותם להמלצה על שיטה, דמוי, צבע ומקום בחוף; מדד הבטיחות בודק רוח, משבים, גלים, גשם וראות.</li>
+</ul>
+</details>
+
 </section>
 
 <!-- דירוג חופים -->
@@ -153,6 +166,7 @@
 </section>
 
 <section class="container lure-guide" id="lureGuide" aria-label="מדריך דמויים לפי דג וחודש"></section>
+<section class="container lure-guide" id="methodsGuide" aria-label="מדריך שיטות דיג"></section>
 
 <section class="catalog container" id="catalog" aria-labelledby="catalog-title">
 <div class="catalog-heading"><div><span class="section-kicker">מדריך עבודה חזותי</span><h2 id="catalog-title">הארסנל שלך<span class="heading-mark">.</span></h2><p class="catalog-lead">התנועה, הקצב ודגי המטרה מוצגים על כל כרטיס — בלי לפתוח פירוט.</p></div><p id="resultCount" role="status" aria-live="polite"></p></div>

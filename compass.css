@@ -195,3 +195,12 @@ body{background:var(--ground);padding-bottom:84px}
 .lg-tips summary{cursor:pointer;font-weight:700}.lg-tips li{font-size:14px;margin:3px 0}
 .lg-actions{margin:10px 0 0;font-size:14px}
 .research-fish{font-size:13px;margin:6px 0 0;color:var(--ink)}.research-fish small{color:var(--muted)}
+/* beach features, advice, methods */
+.features{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.ft{font:600 12.5px Assistant,sans-serif;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--ink)}
+.ft.is-warn{background:#fff1ec;border-color:#f3c4b3;color:#8a2f12}
+.advice{margin:8px 0 4px;background:var(--soft);border-radius:12px;padding:6px 10px}
+.advice summary{cursor:pointer;font-weight:700;font-size:14px}
+.advice ul{list-style:none;margin:6px 0 0;padding:0}.advice li{font-size:14px;margin:4px 0;line-height:1.45}
+.method h3{font-size:18px}.method-tips{margin:6px 0;padding-inline-start:18px}.method-tips li{font-size:14px;margin:3px 0}
+.why-matters li{margin:6px 0;line-height:1.55}

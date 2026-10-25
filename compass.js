@@ -11,6 +11,7 @@ const state = { tab: store.get("compass-tab", "today"), beach: store.get("compas
 const ZONE = { "צפון": "212", "שרון": "210", "מרכז": "210", "דרום": "213", "אילת": "214", "כנרת": "211" };
 const DIR8 = d => ["צפון", "צפון-מזרח", "מזרח", "דרום-מזרח", "דרום", "דרום-מערב", "מערב", "צפון-מערב"][Math.round(((d % 360) + 360) % 360 / 45) % 8];
 let FC = null;
+const HOUR_MS = 36e5;
 const todayKey = () => E.il(Date.now()).key;
 
 /* ---------- calculation per beach and day ---------- */
@@ -75,6 +76,47 @@ function fillPicker() {
 }
 function pickBeach(n) { state.beach = n; store.set("compass-beach", n); renderToday(); if (state.tab === "fish") renderFish(); }
 
+/* ---------- beach characteristics (data/beach-features.js) ---------- */
+function featuresHtml(b) {
+  const f = (window.BEACH_FEATURES || {})[b.name]; if (!f) return "";
+  return `<p class="features">${f.tags.map(t => `<span class="ft">${esc(t)}</span>`).join("")}${f.warn.map(w => `<span class="ft is-warn">⚠️ ${esc(w)}</span>`).join("")}</p>`;
+}
+
+/* ---------- what to do in these conditions: method, lure, colour and where in the beach ----------
+   Our fishing-knowledge matrix (docs/strike-point/04 §2, §6, §7): sea state × wind, light, pressure trend, after a storm,
+   onshore / offshore wind, warm water in winter, moon. */
+const DIRDIFF = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
+function adviceFor(s, b) {
+  const x = s.x, out = [], lake = b.water === "lake", w = x.waveMax, wind = x.wind;
+  if (!lake && w != null) {
+    if (w > 130) out.push(["⛔", "ים גבוה מאוד — לא יוצאים"]);
+    else if (w > 100) out.push(["🛟", "ים גבוה — רק מקומות מוגנים: מרינה או הצד המוגן של שובר"]);
+    else if (w >= 60) out.push(["🌊", "ים עובד — מינו או וויברציה לגומבר וללברק, צבעים בולטים, לחפש מים לבנים מעל שרטונים"]);
+    else if (w >= 30) out.push(wind != null && wind > 25 ? ["💨", "ים נוח עם רוח — מתכות כבדות יותר והטלה עם הרוח"] : ["✨", `ים נוח — חלון טוב: מתכות לטרכון ולפלמידה${s.id === "morning" ? ", פופר בשחר" : ""}`]);
+    else out.push(["🪞", "ים שקט מאוד — מים צלולים ודגים זהירים: חוט דק, דמויים קטנים וטבעיים, LRF; אגי בערב"]);
+  }
+  if (lake && wind != null) out.push(wind > 25 ? ["💨", "רוח חזקה בכנרת — לחפש חוף מוגן מהרוח, להיזהר מגלים"] : ["🪞", "כנרת שקטה — דמויים קטנים וחוט דק, שחר וערב"]);
+  // light: the session decides the layer
+  out.push(s.id === "morning" ? ["🌅", "שחר — לעבוד על פני המים: פופר או סטיקבייט"] : s.id === "midday" ? ["☀️", "אור מלא — לרדת לעומק: ג׳יג מתכת או מיקרו-ג׳יג"] : ["🌇", "דמדומים — מינו או שאד; אחרי החשכה אגי, וברקודה מתחת לאורות"]);
+  if (x.dpS <= -0.3 || x.dp3 <= -1) out.push(["📉", "לחץ יורד — בדרך כלל חלון אכילה פעיל"]);
+  else if (x.dp6 >= 2) out.push(["📈", "לחץ עולה מהר — הדגים זהירים יותר: עבודה איטית ועדינה"]);
+  const rows = (FC && FC.data[b.group]) || [], prev = rows.filter(r => r.T < x.T0 && r.T >= x.T0 - 36 * HOUR_MS).map(r => r.wave).filter(v => v != null);
+  if (!lake && prev.length && Math.max(...prev) >= 100 && (w == null || w < 80)) out.push(["🟤", "אחרי סערה — מים עכורים: צבעים בולטים או זוהרים, שפכי נחלים; דניס ולברק בסרף"]);
+  const f = (window.BEACH_FEATURES || {})[b.name], mid = rows.find(r => Math.abs(r.T - (x.T0 + x.T1) / 2) < 31 * 6e4);
+  if (f && f.az != null && mid && mid.dir != null && mid.wind >= 12) {
+    const fromSea = DIRDIFF(mid.dir, f.az) <= 60, fromLand = DIRDIFF(mid.dir, (f.az + 180) % 360) <= 60;
+    if (fromLand) out.push(["🧭", "רוח מהיבשה — ים שטוח והטלה רחוקה: לדוג בנקודה החשופה"]);
+    else if (fromSea) out.push(["🧭", "רוח מהים — לחפש צד מוגן של שובר או מפרצון"]);
+  }
+  const mo = +state.day.slice(5, 7);
+  if (f && f.tags.includes("מים חמים בחורף") && [11, 12, 1, 2, 3].includes(mo)) out.push(["🌡️", "חורף — המים החמים בקטע הזה מרכזים טורפים (ראו נקודות בחוף)"]);
+  if (s.id === "evening" && typeof SunCalc !== "undefined") { const ill = SunCalc.getMoonIllumination(new Date(x.T1)).fraction;
+    if (ill >= 0.85) out.push(["🌕", "ירח כמעט מלא — יותר פעילות בלילה: קלאמרי, וברקודה מתחת לאורות"]);
+    else if (ill <= 0.15) out.push(["🌑", "ליל מולד חשוך — השחר והדמדומים חשובים יותר מהלילה"]); }
+  if (f && f.tags.some(t => /שובר|שפך|סלעים|מזח/.test(t))) out.push(["📍", `במקום: ${f.tags.filter(t => /שובר|שפך|סלעים|מזח|לגונה|מפרצון/.test(t)).slice(0, 3).join(", ")} — קצה המבנה, פתחים ותעלות הם הנקודות החמות`]);
+  return out;
+}
+
 /* ---------- today ---------- */
 function dayChips(el, active, onPick) {
   const k0 = todayKey();
@@ -98,6 +140,7 @@ function sessionCard(s, b) {
     <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
     ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
+    ${(() => { const adv = adviceFor(s, b); return adv.length ? `<details class="advice" ${past ? "" : "open"}><summary>מה עושים בתנאים האלה</summary><ul>${adv.map(([i, t]) => `<li><span aria-hidden="true">${i}</span> ${esc(t)}</li>`).join("")}</ul></details>` : ""; })()}
     <dl class="sess-cond">
       ${x.waveMax != null ? `<div><dt>גל</dt><dd>${fmtNum(x.wave)}–${fmtNum(x.waveMax)} ס״מ</dd></div>` : ""}
       <div><dt>רוח</dt><dd>${fmtNum(x.wind)} קמ״ש</dd></div>
@@ -143,6 +186,7 @@ function renderToday() {
   const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions, r.safeOf);
   $("#beachHead").innerHTML = `<h2>${esc(b.name)} <small>${esc(b.region)}</small></h2>
     <p class="beach-meta">${esc(TYPE_NAMES[b.type] || "")}${b.note ? " · " + esc(b.note) : ""}</p>
+    ${featuresHtml(b)}
     ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
     ${navHtml(b)}
     ${canBoat(b) ? `<label class="boat-toggle"><input type="checkbox" id="boatToggle" ${boat ? "checked" : ""}> מצב סירה (בטא): תנאי ים פתוח ~11 ק״מ מהחוף</label>` : ""}
@@ -437,11 +481,64 @@ function renderLureGuide() {
     <div class="now-months lg-months" role="group" aria-label="חודש">${months}</div>
     <label class="spot-pick lg-pick"><span>דג מטרה</span><select id="lgFish"><option value="">כל סוגי הדמויים</option>${opts}</select></label>${body}`;
   box.querySelectorAll("[data-lgm]").forEach(b => b.onclick = () => { lg.month = +b.dataset.lgm; renderLureGuide(); });
+  renderMethods();
   box.querySelectorAll("[data-lgf]").forEach(b => b.onclick = () => { lg.fish = b.dataset.lgf; store.set("compass-lg-fish", lg.fish); renderLureGuide(); box.scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("#lgFish").onchange = e => { lg.fish = e.target.value; store.set("compass-lg-fish", lg.fish); renderLureGuide(); };
   box.querySelectorAll(".fish-link[data-fish]").forEach(b => b.onclick = () => fishCard(b.dataset.fish));
   const clr = $("#lgClear"); if (clr) clr.onclick = () => { lg.fish = ""; store.set("compass-lg-fish", ""); renderLureGuide(); };
   const wh = $("#lgWhere"); if (wh) wh.onclick = () => { state.target = sp.id; store.set("compass-target", sp.id); setTab("fish"); const t = $("#targetFish"); if (t) { t.value = sp.id; renderTarget(); t.scrollIntoView({ behavior: "smooth", block: "start" }); } };
+}
+
+/* ---------- fishing methods guide (lures tab) — our own summary; fish come from species.js by lure codes ---------- */
+const METHODS = [
+  { id: "spin", name: "ספינינג מהחוף", icon: "🎣", codes: ["JIG", "MIN", "SP", "FP", "POP", "SPOON", "BOMB"],
+    what: "הטלה ואיסוף של דמוי מלאכותי — השיטה הכי נפוצה לטורפים מהחוף ומהשובר.",
+    gear: "חכה 2.7–3.3 מ׳ (10–60 ג׳), גלגלת 3000–5000, חוט קלוע 0.12–0.20 מ״מ, ליידר פלורוקרבון 0.35–0.60 מ״מ.",
+    when: "שחר ודמדומים; ים נוח עד עובד. בשחר על פני המים, באור מלא לעומק.",
+    tips: ["לזוז לאורך החוף עד שמוצאים פעילות — ציפורים, רתיחות, דגי פיתיון קופצים.", "להחליף צבע ומשקל לפני שמחליפים מקום."] },
+  { id: "lrf", name: "LRF — ספינינג קל", icon: "🪶", codes: ["MJ", "SOFT"],
+    what: "דמויים זעירים על ציוד קל מאוד, לדגים קטנים וזהירים ליד מבנים.",
+    gear: "חכה 1.8–2.4 מ׳ (0.5–10 ג׳), גלגלת 1000–2500, קלוע 0.04–0.08 מ״מ, ליידר 0.16–0.25 מ״מ, ראשי ג׳יג 0.5–5 ג׳.",
+    when: "ים שקט ומים צלולים, ליד שוברים, מזחים ומרינות; ערב ולילה ליד אורות.",
+    tips: ["גרירה איטית ליד הקרקעית והסלעים, עם עצירות.", "חוט דק = יותר נגיעות; לשחרר מהר דגים קטנים."] },
+  { id: "jig", name: "ג׳יגינג", icon: "⚓", codes: ["JIG", "TAI"],
+    what: "ג׳יג מתכת או טאי-ראבר שמורידים לעומק ומעלים בהקפצות — מהשובר או אנכית מסירה.",
+    gear: "מהחוף: ג׳יג 20–60 ג׳ על ציוד ספינינג חזק. מסירה: חכת ג׳יגינג, ג׳יג 60–300 ג׳ או טאי-ראבר 40–200 ג׳.",
+    when: "כשהלהקות עמוק או רחוק; אור מלא; ברוח — משקל כבד יותר.",
+    tips: ["לספור את שקיעת הג׳יג כדי לחזור לאותו עומק.", "רוב התקיפות בירידה — להיות מוכנים להרמה."] },
+  { id: "surf", name: "סרף קסטינג", icon: "🏖️", codes: ["SURF"],
+    what: "פיתיון טבעי על משקולת, בהטלה רחוקה מחוף חולי לתעלה שאחרי קו השבירה.",
+    gear: "חכה 4–4.5 מ׳, משקולת 60–150 ג׳ (עוגן בים עובד), ליידר ארוך וקרס חזק, מעמד לחכה.",
+    when: "1–2 ימים אחרי סערה, כשהגלים נרגעים והמים עדיין עכורים; שחר, ערב ולילה.",
+    tips: ["להטיל לשקע הכהה שאחרי השבירה הראשונה או השנייה.", "להרים על משיכה ברורה, לא על נקישות."] },
+  { id: "bottom", name: "דיג תחתית", icon: "⬇️", codes: ["BAIT", "LEDGER"],
+    what: "פיתיון על הקרקעית — משקולת זזה או קבועה — ליד סלעים, שוברים ובכנרת.",
+    gear: "חכה בינונית, משקולת קלה ככל האפשר לזרם, חוט קרס דק וקרס קטן לפי הדג.",
+    when: "ערב ולילה; ליד מבנים ושפכים; בכנרת — שחר וערב.",
+    tips: ["פיתיון טרי קטן תופס יותר.", "בסלעים — משקולת שבירה כדי לא לאבד את כל המערכת."] },
+  { id: "float", name: "מצוף", icon: "🔴", codes: ["FLOAT"],
+    what: "פיתיון בעומק קבוע מתחת למצוף — לבורי, סלפה, סיכן ודגי כנרת.",
+    gear: "חכה ארוכה וקלה, מצוף דק שקצהו בלבד בולט, משקולות קטנות לאורך החוט, קרס קטן.",
+    when: "ים שקט, מרינות ומים מוגנים; ביום.",
+    tips: ["תערובת משיכה במעט ובקביעות מחזיקה את הלהקה במקום.", "פיתיון נעלם בלי תנועת מצוף — להוסיף משקולת ולהקטין קרס."] },
+  { id: "egi", name: "אגינג (קלאמרי)", icon: "🦑", codes: ["EGI"],
+    what: "אגי — דמוי שרימפס עם כתר קוצים — לקלאמרי, ספיה ותמנון.",
+    gear: "חכה 2.4–2.7 מ׳ רכה, קלוע דק 0.10–0.14 מ״מ, ליידר 0.25–0.30 מ״מ, אגי 2.5–3.5.",
+    when: "ערבי חורף ואביב, ליד תאורה, מים צלולים וים שקט. אסור באילת (כל הרכיכות מוגנות).",
+    tips: ["2–3 הקפצות, שקיעה וריחוף — רוב התקיפות בזמן הריחוף.", "משיכה רציפה בקרב, בלי לתת רפיון."] }
+];
+function renderMethods() {
+  const box = $("#methodsGuide"); if (!box) return;
+  const m = lg.month, all = lgTargets();
+  box.innerHTML = `<div class="lg-head"><span class="section-kicker">שיטות</span><h2>מדריך שיטות דיג</h2><p class="hint">לכל שיטה: מה זה, ציוד, מתי, טיפים, ולאילו דגים היא מתאימה. הדגים שבעונה ב${MONTHS[m - 1]} מודגשים.</p></div>
+    <div class="lg-types">${METHODS.map(me => { const fish = all.filter(s => [...s.lures, ...(s.lures2 || [])].some(c => me.codes.includes(c)))
+        .sort((a, c) => ({ pk: 0, in: 1, off: 2 }[lgStatus(a, m)] - { pk: 0, in: 1, off: 2 }[lgStatus(c, m)]));
+      return `<article class="lg-type method"><header><h3>${me.icon} ${esc(me.name)}</h3></header><p class="lg-line">${esc(me.what)}</p>
+        <p class="lg-line"><b>ציוד:</b> ${esc(me.gear)}</p><p class="lg-line"><b>מתי:</b> ${esc(me.when)}</p>
+        <ul class="method-tips">${me.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+        <p class="lg-line"><b>דמויים:</b> ${me.codes.filter(c => LURE_TYPES[c]).map(c => esc(LURE_TYPES[c])).join(" · ")}</p>
+        <p class="lg-fishes">${fish.map(s => `<button type="button" class="lg-chip is-${lgStatus(s, m)}" data-lgf="${s.id}">${esc(s.name)}${lgStatus(s, m) === "pk" ? " ★" : ""}</button>`).join("")}</p></article>`; }).join("")}</div>`;
+  box.querySelectorAll("[data-lgf]").forEach(bt => bt.onclick = () => { lg.fish = bt.dataset.lgf; store.set("compass-lg-fish", lg.fish); renderLureGuide(); $("#lureGuide").scrollIntoView({ behavior: "smooth", block: "start" }); });
 }
 
 /* ---------- link into the lure arsenal (script.js) ---------- */
