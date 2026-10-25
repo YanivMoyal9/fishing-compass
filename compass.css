@@ -123,4 +123,11 @@ body{background:var(--ground);padding-bottom:84px}
 .dlg-actions{display:flex;gap:8px;margin-top:14px}
 .dlg-actions button{font:700 15px Assistant,sans-serif;border-radius:12px;padding:9px 14px;border:1px solid var(--teal);background:#fff;color:var(--teal-deep);cursor:pointer}
 .dlg-actions .primary{background:var(--teal);color:#fff}
+.safe-chip{font:700 12px Assistant,sans-serif;font-style:normal;border-radius:999px;padding:2px 8px;margin-inline-start:6px;white-space:nowrap}
+.sf-good{--sf:#2f9e6e}.sf-ok{--sf:#c99a1c}.sf-weak{--sf:#d6653e}.sf-danger{--sf:#a33b3b}
+.safe-chip.sf-good,.safe-chip.sf-ok,.safe-chip.sf-weak,.safe-chip.sf-danger{background:color-mix(in srgb,var(--sf) 14%,#fff);color:var(--sf);border:1px solid color-mix(in srgb,var(--sf) 40%,#fff)}
+.hr .hr-bar{background:linear-gradient(to top,var(--sf,var(--teal)) calc(var(--v)*1%),#e3ecea 0)}
+.hr.is-best b{color:var(--teal-deep);text-decoration:underline}
+.danger{background:#fdecec;border:1px solid #f0b8b8;color:#8a2a2a;border-radius:10px;padding:6px 10px;font-size:14px;font-weight:700;margin:6px 0}
+.caution{background:#fff4e5;border:1px solid #f1d2a8;color:#8a4b12;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 [hidden]{display:none!important}

@@ -117,10 +117,9 @@ function seaIndex(x, s, tides, moon) {
   }
   add(s.id === "morning" ? 4.2 : s.id === "midday" ? -0.7 : -3.5, s.id === "morning" ? "אור ראשון" : s.id === "evening" ? "ערב" : "אמצע היום");
   if (x.waveMax != null) { if (x.waveMax >= 90) add(-7.3, `גלים עד ${Math.round(x.waveMax)} ס״מ`); else if (x.waveMax <= 50) add(3, "ים נוח"); }
-  let score = 52 + f.reduce((a, b) => a + b.pts, 0);
-  const danger = (x.waveMax != null && x.waveMax >= 150) || (x.windMax != null && x.windMax >= 35);
-  if (danger) { score = Math.min(score, 25); f.push({ pts: 0, label: "⚠️ ים או רוח מסוכנים — לא לעלות על שוברים" }); }
-  return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)), danger };
+  // the activity index stays pure (Strike Point-based); sea safety is reported separately by safety()
+  const score = 52 + f.reduce((a, b) => a + b.pts, 0);
+  return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)) };
 }
 
 /* ---------- activity index (lake): pressure trend and wind ---------- */
@@ -132,10 +131,8 @@ function lakeIndex(x, s, moon) {
   if (s.id === "evening") add(-20, "ערב"); else if (s.id === "midday") add(-4, "אמצע היום");
   const mid = (x.T0 + x.T1) / 2;
   if (moon && moon.ev.some(e => Math.abs(e.T - mid) <= (x.T1 - x.T0) / 2)) add(-3, "אירוע ירח בחלון");
-  let score = Math.round((47 + f.reduce((a, b) => a + b.pts, 0)) / 5) * 5;
-  const danger = x.windMax != null && x.windMax >= 35;
-  if (danger) { score = Math.min(score, 25); f.push({ pts: 0, label: "⚠️ רוח חזקה" }); }
-  return { score: Math.max(5, Math.min(95, score)), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)), danger };
+  const score = Math.round((47 + f.reduce((a, b) => a + b.pts, 0)) / 5) * 5;
+  return { score: Math.max(5, Math.min(95, score)), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)) };
 }
 
 /* ---------- water-layer tip from the pressure trend (hPa rounded) ---------- */
@@ -152,16 +149,46 @@ function tip(rows, key, s, lake) {
     : { layer: "bottom", text: "חלק תחתון — לחץ גבוה או עולה" };
 }
 
-/* ---------- hourly fishing comfort 0–100 ---------- */
-function comfort(r) {
-  let s = 100;
-  const w = r.wind || 0;
-  s -= w <= 8 ? 0 : w <= 15 ? 10 : w <= 25 ? 40 : 65;
-  if (w >= 9 && r.dir != null && (r.dir >= 245 || r.dir < 25)) s -= 10; // onshore (west / north-west)
-  if ((r.rain || 0) > 20) s -= 15;
-  const v = r.wave || 0; s -= v < 60 ? 0 : v < 100 ? 10 : v < 150 ? 30 : 55;
-  return Math.max(0, Math.min(100, s));
+/* ---------- hourly safety & comfort 0–100 ----------
+   The fishing-index mechanics measured on the Cormorant site (docs/cormorant/08): factor curves for wind, gusts, waves, rain,
+   visibility, air temperature and light; weights grow with the factor's deficit (w·(1 + 11.5·deficit)); the score never exceeds the worst
+   of wind / gusts / waves + 20; any of them at 0 → "dangerous" (≤ 20); an official sea warning → at most 40.
+   It is a SAFETY layer only — the activity index (when to fish) stays the Strike Point-based model above. */
+const ip = (pts, x) => { if (x <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [a, b] = [pts[i - 1], pts[i]]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); } return pts[pts.length - 1][1]; };
+const CURVE = {
+  wind: [[4, 100], [5, 98], [6, 89], [7, 82], [8, 76], [9, 65], [10, 56], [11, 51], [14, 35], [18, 15], [25, 0]],          // knots
+  gust: [[7, 100], [9, 91], [10, 85], [11, 78], [12, 72], [13, 64], [14, 61], [15, 57], [16, 48], [17, 44], [18, 37], [22, 20], [26, 6], [30, 0]],
+  waveSea: [[0.35, 100], [0.5, 80], [0.6, 75], [0.7, 68], [0.8, 59], [0.9, 54], [1.0, 48], [1.2, 29], [1.6, 0]], // m
+  waveLake: [[0.3, 100], [0.4, 55], [0.6, 30], [1.0, 0]],                                                          // IMS official range, upper value
+  rain: [[0.1, 100], [0.3, 94], [0.6, 90], [1, 80], [2, 67], [4, 0]],                                              // mm/h
+  vis: [[0.5, 0], [1, 60], [2, 76], [4, 88], [5, 100]],                                                             // km
+  air: [[2, 0], [14, 100], [28, 100], [29, 84], [31, 65], [32, 57], [33, 42], [34, 36], [42, 0]]                  // °C
+};
+const W8 = { wind: .28, gust: .14, waves: .28, rain: .10, vis: .05, air: .07, light: .08 };
+// r: hourly row (wind & gust km/h, wave cm, rain mm/h, vis m, air °C); o: { lake, light: "day"|"twilight"|"night", lakeWave: m, warning: bool }
+function safety(r, o = {}) {
+  const kn = v => v == null ? null : v / 1.852;
+  const f = {};
+  if (r.wind != null) f.wind = ip(CURVE.wind, kn(r.wind));
+  if (r.gust != null) f.gust = ip(CURVE.gust, kn(r.gust));
+  const wave = o.lake ? o.lakeWave : (r.wave != null ? r.wave / 100 : null);
+  if (wave != null) f.waves = ip(o.lake ? CURVE.waveLake : CURVE.waveSea, wave);
+  if (r.mm != null) f.rain = ip(CURVE.rain, r.mm);
+  if (r.vis != null) f.vis = ip(CURVE.vis, r.vis / 1000);
+  if (r.air != null) f.air = ip(CURVE.air, r.air);
+  f.light = o.light === "night" ? 84 : o.light === "twilight" ? 90 : 100;
+  let num = 0, den = 0;
+  for (const [k, s] of Object.entries(f)) { const w = W8[k] * (1 + 11.5 * (100 - s) / 100); num += w * s; den += w; }
+  let score = num / den;
+  const safe = ["wind", "gust", "waves"].filter(k => f[k] != null).map(k => f[k]);
+  const worst = safe.length ? Math.min(...safe) : 100;
+  score = Math.min(score, worst + 20);
+  if (worst <= 0) score = Math.min(score, 20);
+  if (o.warning) score = Math.min(score, 40);
+  score = Math.round(Math.max(0, Math.min(100, score)));
+  return { score, f, level: score >= 75 ? "טוב" : score >= 50 ? "סביר" : score >= 30 ? "חלש" : "מסוכן", cls: score >= 75 ? "sf-good" : score >= 50 ? "sf-ok" : score >= 30 ? "sf-weak" : "sf-danger" };
 }
+const comfort = (r, o) => safety(r, o).score;
 
 const level = s => s >= 80 ? { t: "מצוין", c: "lv-top" } : s >= 65 ? { t: "טוב מאוד", c: "lv-good" } : s >= 50 ? { t: "טוב", c: "lv-ok" } : s >= 35 ? { t: "בינוני", c: "lv-mid" } : { t: "חלש", c: "lv-low" };
 
@@ -212,17 +239,19 @@ function goldenHours(key, lat, lon) {
   const t = SunCalc.getTimes(new Date(ilTime(key, 12)), lat, lon), sr = il(+t.sunrise).hf, ss = il(+t.sunset).hf;
   return [[sr, sr + 1], [ss - 1, ss]];
 }
-// best hour 05–21: fishing comfort × activity of the session that covers the hour (outside sessions: 35)
-function bestHour(rows, key, sessions) {
+// best hour: inside the session with the highest activity index (Strike Point-based), the hour with the best safety score;
+// hours that are not at least "fair" (50) are used only when nothing else exists. safeOf(row) → safety score.
+function bestHour(rows, key, sessions, safeOf) {
   let best = null;
   for (const r of rows) {
-    const p = il(r.T); if (p.key !== key || p.h < 5 || p.h > 21) continue;
-    const s = sessions.find(q => !q.na && p.h + 0.5 >= q.start && p.h + 0.5 <= q.end);
-    const v = (s ? s.score : 35) * comfort(r) / 100;
-    if (!best || v > best.v) best = { h: p.h, v, s };
+    const p = il(r.T); if (p.key !== key) continue;
+    const s = sessions.find(q => !q.na && p.h + 0.5 >= q.start && p.h + 0.5 <= q.end); if (!s) continue;
+    const sf = safeOf ? safeOf(r) : 100;
+    const v = (sf >= 50 ? 1e6 : 0) + s.score * 1000 + sf;
+    if (!best || v > best.v) best = { h: p.h, v, s, safety: sf };
   }
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, HOUR };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
 })();

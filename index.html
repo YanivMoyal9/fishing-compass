@@ -20,15 +20,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=3">
+<link rel="stylesheet" href="compass.css?v=4">
 <script src="vendor/suncalc.js" defer></script>
 <script src="data/species.js?v=4" defer></script>
 <script src="data/beaches.js?v=3" defer></script>
-<script src="engine.js?v=2" defer></script>
-<script src="forecast.js?v=2" defer></script>
+<script src="engine.js?v=3" defer></script>
+<script src="forecast.js?v=3" defer></script>
 <script src="script.js?v=18" defer></script>
 <script src="bubbles.js?v=3" defer></script>
-<script src="compass.js?v=5" defer></script>
+<script src="compass.js?v=6" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -61,8 +61,8 @@
 <div class="beach-head" id="beachHead"></div>
 <div class="sessions" id="sessions"></div>
 <section class="card-lite">
-<h2>נוחות דיג לפי שעה</h2>
-<p class="hint">0–100: רוח, כיוון רוח, גלים וגשם. לא מדד הפעילות של הדגים.</p>
+<h2>בטיחות ונוחות לפי שעה</h2>
+<p class="hint">0–100 לפי רוח, משבים, גלים, גשם, ראות, חום ואור — עם קנס לגורם החלש ותקרה של "הגורם הגרוע + 20"; באזהרה רשמית עד 40. ירוק טוב · צהוב סביר · כתום חלש · אדום מסוכן. זה לא מדד הדגים — מתי לדוג נקבע במדד הפעילות שבכרטיסי הסשן.</p>
 <div class="hourly" id="hourly"></div>
 </section>
 <p class="src-note" id="srcNote"></p>
@@ -70,7 +70,9 @@
 <summary>איך מחושב מדד הפעילות?</summary>
 <ul>
 <li><b>החלונות:</b> בוקר — חצי שעה לפני האור הראשון (שחר ימי), 3 שעות · צהריים 11:00–15:00 · ערב — שעתיים לפני האור האחרון, שעתיים וחצי.</li>
-<li><b>המדד (0–100):</b> בסיס 52 ועוד נקודות לפי הגאות (עולה אחרי שפל מעלה, יורדת לשפל מורידה), הלחץ (נמוך ויורד מעלה, גבוה ועולה מוריד), זריחת ירח בחלון, שעת הסשן ומצב הים. בכנרת — מגמת הלחץ והרוח.</li>
+<li><b>מדד הפעילות (0–100) — המדד הראשי, לפי השיטה שפוענחה מ-Strike Point:</b> בסיס 52 ועוד נקודות לפי הגאות (עולה אחרי שפל מעלה, יורדת לשפל מורידה), הלחץ (נמוך ויורד מעלה, גבוה ועולה מוריד), זריחת ירח בחלון, שעת הסשן ומצב הים. בכנרת — מגמת הלחץ והרוח.</li>
+<li><b>בטיחות ("בטיחות X" בכל סשן ובשעות):</b> שכבה נפרדת לפי שיטת הבטיחות שנמדדה באתר קורמורן — משקל גדל לגורם החלש, תקרה של הגורם הגרוע מבין רוח/משבים/גלים + 20, ואזהרה רשמית מגבילה ל-40. היא לא משנה את מדד הפעילות, רק מתריעה.</li>
+<li><b>השעה הכי טובה:</b> בתוך הסשן עם מדד הפעילות הגבוה ביותר — השעה הבטוחה ביותר.</li>
 <li><b>השכבה:</b> כשהלחץ ≤ 1014 ויורד במהלך החלון — לעבוד במים העליונים; אחרת — בחלק התחתון.</li>
 <li><b>הדגים והדמויים:</b> לפי העונה, סוג החוף, טמפ׳ המים והשכבה. הפירוט בלשונית "דגים".</li>
 <li>המדד הוא הערכה סטטיסטית. בשטח קובעים גם זרם, צבע המים ונוכחות פיתיון.</li>
@@ -186,7 +188,7 @@ if ("serviceWorker" in navigator) {
   const hadController = !!navigator.serviceWorker.controller;
   let reloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(r => { r.update(); document.addEventListener("visibilitychange", () => { if (!document.hidden) r.update(); }); }).catch(() => {}));
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(r => { const up = () => r.update().catch(() => {}); up(); document.addEventListener("visibilitychange", () => { if (!document.hidden) up(); }); }).catch(() => {}));
 }
 </script>
 </body>

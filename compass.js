@@ -22,14 +22,37 @@ function beachDay(b, key, boat) {
   const rows = (FC && FC.data[b.group + (boat ? "@boat" : "")]) || [];
   const win = E.windows(key, b.lat, b.lon), lake = b.water === "lake";
   const tides = lake ? [] : E.tideExtremes(rows), moon = E.moonEvents(key, 1, b.lat, b.lon);
+  const safeOf = r => E.safety(r, safetyCtx(b, r)).score;
   const sessions = win.sessions.map(s => {
     const x = E.sessionInputs(rows, key, s); if (!x) return { ...s, na: true };
     const idx = lake ? E.lakeIndex(x, s, moon) : E.seaIndex(x, s, tides, moon);
-    return { ...s, x, ...idx, tip: E.tip(rows, key, s, lake) };
+    // safety layer for the session's hours (Cormorant mechanics): average for display, minimum for the danger flag
+    const T0 = E.ilTime(key, Math.floor(s.start)), T1 = E.ilTime(key, Math.ceil(s.end));
+    const sf = rows.filter(r => r.T >= T0 && r.T < T1).map(safeOf);
+    const safe = sf.length ? { avg: Math.round(sf.reduce((a, c) => a + c, 0) / sf.length), min: Math.min(...sf) } : null;
+    return { ...s, x, ...idx, tip: E.tip(rows, key, s, lake), safe };
   });
-  const res = { win, sessions, tides: tides.filter(t => E.il(t.T).key === key), rows: rows.filter(r => E.il(r.T).key === key) };
+  const res = { win, sessions, safeOf, tides: tides.filter(t => E.il(t.T).key === key), rows: rows.filter(r => E.il(r.T).key === key) };
   cache.set(ck, res); return res;
 }
+/* ---------- safety context per hour: light, Kinneret wave (IMS official range), relevant official warning ---------- */
+const sunCache = new Map();
+function lightAt(b, T) {
+  const k = E.il(T).key, ck = b.name + k;
+  if (!sunCache.has(ck)) sunCache.set(ck, SunCalc.getTimes(new Date(E.ilTime(k, 12)), b.lat, b.lon));
+  const t = sunCache.get(ck);
+  return T >= +t.sunrise && T <= +t.sunset ? "day" : (T >= +t.dawn && T < +t.sunrise) || (T > +t.sunset && T <= +t.dusk) ? "twilight" : "night";
+}
+function zoneWarning(b) {
+  const o = FC && FC.official; if (!o || !o.warnings) return false;
+  return o.warnings.some(w => /גלים|ים סוער|ים גבוה|סערה|רוחות חזקות/.test(w.title + w.text) || (b.water === "lake" && /כנרת|כנרות/.test(w.text) && /רוח|סערה|גלים/.test(w.text)));
+}
+function lakeWaveAt(T) {
+  const z = FC && FC.official && FC.official.sea && FC.official.sea.zones["211"]; if (!z) return null;
+  const p = z.periods.find(q => { const a = Date.parse(q.from.replace(" ", "T") + ":00+02:00"), c = Date.parse(q.to.replace(" ", "T") + ":00+02:00"); return T >= a && T < c; });
+  return p && p.wave_cm ? p.wave_cm[1] / 100 : null;
+}
+function safetyCtx(b, r) { return { lake: b.water === "lake", light: lightAt(b, r.T), lakeWave: b.water === "lake" ? lakeWaveAt(r.T) : null, warning: zoneWarning(b) }; }
 const beachByName = n => BEACHES.find(b => b.name === n) || BEACHES[0];
 
 /* ---------- tabs ---------- */
@@ -62,6 +85,8 @@ function dayChips(el, active, onPick) {
   el.querySelectorAll("button").forEach(btn => btn.onclick = () => onPick(btn.dataset.k));
 }
 const fmtNum = (v, d = 0) => v == null || isNaN(v) ? "—" : (+v).toFixed(d);
+const safeCls = v => v >= 75 ? "sf-good" : v >= 50 ? "sf-ok" : v >= 30 ? "sf-weak" : "sf-danger";
+const safeName = v => v >= 75 ? "טוב" : v >= 50 ? "סביר" : v >= 30 ? "חלש" : "מסוכן";
 function sessionCard(s, b) {
   if (s.na) return `<article class="sess is-na"><h3>${s.name}</h3><p>אין נתונים לשעות האלה</p></article>`;
   const lv = E.level(s.score), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
@@ -70,7 +95,8 @@ function sessionCard(s, b) {
   const fishLayer = fish.now.filter(r => !r.sp.bait && (r.sp.layer === "all" || r.sp.layer === s.tip.layer)).slice(0, 5).map(r => r.sp.name);
   return `<article class="sess ${lv.c}${past ? " is-past" : ""}">
     <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
-    <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span></div>
+    <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
+    ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
     <dl class="sess-cond">
       ${x.waveMax != null ? `<div><dt>גל</dt><dd>${fmtNum(x.wave)}–${fmtNum(x.waveMax)} ס״מ</dd></div>` : ""}
@@ -114,7 +140,7 @@ function renderToday() {
   dayChips($("#dayChips"), state.day, k => { state.day = k; renderToday(); });
   const boat = state.boat && canBoat(b);
   const r = beachDay(b, state.day, boat);
-  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions);
+  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions, r.safeOf);
   $("#beachHead").innerHTML = `<h2>${esc(b.name)} <small>${esc(b.region)}</small></h2>
     <p class="beach-meta">${esc(TYPE_NAMES[b.type] || "")}${b.note ? " · " + esc(b.note) : ""}</p>
     ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
@@ -126,10 +152,11 @@ function renderToday() {
   const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
   $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
   $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
-  // hourly comfort strip
-  $("#hourly").innerHTML = r.rows.filter(x => { const h = E.il(x.T).h; return h >= 4 && h <= 21; }).map(x => {
-    const c = E.comfort(x), h = E.il(x.T).h;
-    return `<div class="hr" title="רוח ${fmtNum(x.wind)} · גל ${fmtNum(x.wave)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
+  // hourly safety strip (Cormorant mechanics), all 24 hours
+  $("#hourly").innerHTML = r.rows.map(x => {
+    const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f;
+    const tip = `${sf.level} · רוח ${fmtNum(x.wind / 1.852)} קשר${x.gust != null ? `, משבים ${fmtNum(x.gust / 1.852)}` : ""} · גל ${fmtNum(x.wave)} ס״מ${x.mm ? ` · גשם ${fmtNum(x.mm, 1)} מ״מ` : ""}`;
+    return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
   $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`;
@@ -151,7 +178,7 @@ function renderRank() {
   $("#rankList").innerHTML = rows.map(({ b, s }, i) => {
     const lv = E.level(s.score);
     return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)} <small>${esc(b.region)}</small></span>
-      <span class="rs">${s.name} ${E.hm(s.start)}</span><span class="rv">${s.score}</span>${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
+      <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
   }).join("");
   $$("#rankList .rank-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }

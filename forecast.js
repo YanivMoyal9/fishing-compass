@@ -2,7 +2,7 @@
    מקור חי: Open-Meteo (מזג אוויר + ים: גלים, טמפ' מים, גובה פני הים לגאות).
    שכבת דיוק: data/sg.json — קובץ יומי מ-StormGlass (גלים, רוח, משקעים וטמפ' מים) כשהוא עדכני; הלחץ נשאר מ-Open-Meteo. */
 (function () {
-const CACHE_KEY = "compass-forecast-v2", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
+const CACHE_KEY = "compass-forecast-v3", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
 const W_URL = "https://api.open-meteo.com/v1/forecast", M_URL = "https://marine-api.open-meteo.com/v1/marine";
 const list = a => a.map(x => x.toFixed(3)).join(",");
 
@@ -11,7 +11,7 @@ async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new E
 async function fetchOpenMeteo(groups) {
   const ids = Object.keys(groups), sea = ids.filter(id => groups[id].water !== "lake");
   const wq = `${W_URL}?latitude=${list(ids.map(i => groups[i].lat))}&longitude=${list(ids.map(i => groups[i].lon))}` +
-    "&hourly=pressure_msl,wind_speed_10m,wind_direction_10m,precipitation_probability,temperature_2m&past_days=1&forecast_days=8&timezone=GMT";
+    "&hourly=pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability,precipitation,visibility,temperature_2m&past_days=1&forecast_days=8&timezone=GMT";
   const mq = `${M_URL}?latitude=${list(sea.map(i => groups[i].mlat))}&longitude=${list(sea.map(i => groups[i].mlon))}` +
     "&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature,sea_level_height_msl&past_days=1&forecast_days=8&timezone=GMT";
   // boat mode: open sea ~11 km west of each Mediterranean data point
@@ -24,7 +24,7 @@ async function fetchOpenMeteo(groups) {
   ids.forEach((id, i) => {
     const h = W[i].hourly, mi = sea.indexOf(id), mh = mi >= 0 ? M[mi].hourly : null;
     out[id] = h.time.map((t, k) => ({
-      T: Date.parse(t + "Z"), p: h.pressure_msl[k], wind: h.wind_speed_10m[k], dir: h.wind_direction_10m[k], rain: h.precipitation_probability[k], air: h.temperature_2m[k],
+      T: Date.parse(t + "Z"), p: h.pressure_msl[k], wind: h.wind_speed_10m[k], dir: h.wind_direction_10m[k], gust: h.wind_gusts_10m[k], rain: h.precipitation_probability[k], mm: h.precipitation[k], vis: h.visibility[k], air: h.temperature_2m[k],
       wave: mh && mh.wave_height[k] != null ? mh.wave_height[k] * 100 : null, swell: mh && mh.swell_wave_height[k] != null ? mh.swell_wave_height[k] * 100 : null,
       per: mh ? mh.wave_period[k] : null, sst: mh ? mh.sea_surface_temperature[k] : null, sl: mh ? mh.sea_level_height_msl[k] : null, src: "om"
     }));
