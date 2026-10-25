@@ -12,6 +12,7 @@ const lures = [
 {id:11,name:'Ragot Raglou Hybrid',type:'soft',typeLabel:'סיליקון',image:'raglou-hybrid.webp',subtitle:'4.5 גרם · זנב פדל',fish:['לברק','לוקוס','טרכון'],methods:['גלגול רצוף ואיטי.','תנועת הזנב נוצרת בזמן הגלגול; אין צורך להוסיף הרבה אקשן.'],preview:'גלגול איטי ורצוף',area:'לפי עומק הזריקה',months:null}
 ];
 
+window.ARSENAL_LURES=lures;
 const MONTH_NAMES=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const MONTH_SHORT=['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
 const NOW=new Date().getMonth()+1;
@@ -318,13 +319,21 @@ const inNow=!lure.months||lure.months.includes(NOW);
 const text=(lure.months?rangeText(lure.months):'כל השנה')+(pk.length?` · <span class="mb-pk">שיא ${monthsText(pk)}</span>`:'')+(peakNow?' · <span class="mb-pk">בשיא עכשיו</span>':inNow&&lure.months?' · בעונה עכשיו':'');
 return `<div class="month-bar${lure.months?'':' is-all'}" role="img" aria-label="${label}"><div class="mb-track">${MONTH_NAMES.map((m,i)=>{const n=i+1;return `<span class="mb${pk.includes(n)?' pk':(!lure.months||lure.months.includes(n))?' on':''}${n===NOW?' now':''}" title="${m}${pk.includes(n)?' · שיא':''}"></span>`}).join('')}</div><div class="mb-caption"><span class="mb-label">עונה</span><b>${text}</b><span class="mb-now"><i></i>${MONTH_NAMES[NOW-1]}</span></div></div>`;
 }
+// fish from the research (species.js) for which this lure type is a main or extra lure and that are in season this month
+const ARSENAL_CODES={minnow:['MIN','SP'],topwater:['FP','POP'],jig:['JIG','MJ'],soft:['SOFT']};
+function researchFish(lure){
+if(!window.SPECIES)return '';const codes=ARSENAL_CODES[lure.type]||[];const m=refMonth();
+const list=SPECIES.filter(s=>!s.caution&&!(s.protectedIn&&s.protectedIn.length===s.waters.length)&&s.m.includes(m)&&[...s.lures,...(s.lures2||[])].some(c=>codes.includes(c))&&!lure.fish.includes(s.name));
+if(!list.length)return '';
+return `<p class="research-fish">לפי המחקר מתאים גם ל: ${list.slice(0,8).map(s=>escapeHTML(s.name)+(s.p&&s.p.includes(m)?' ★':'')).join(' · ')}${list.length>8?` ועוד ${list.length-8}`:''} <small>(בעונה ב${MONTH_NAMES[m-1]})</small></p>`;
+}
 function card(lure){
 const s=season(lure);
 const p=profiles[lure.id];
 const shareText=`🎣 ${lure.name} — ${lure.subtitle}\n🐟 דגי מטרה: ${lure.fish.join(', ')}\n🔁 שיטת עבודה: ${lure.methods.join(' ')}\n📅 עונה: ${s.share}${lure.note?`\n💡 ${lure.note}`:''}\n${location.href.split('#')[0]}`;
 return `<article class="lure-card" id="card-${lure.id}" aria-labelledby="lure-${lure.id}">
 <div class="card-top"><div class="card-visual"><span class="card-index">#${String(lure.id).padStart(2,'0')}</span><img src="assets/lures/${lure.image}" alt="דמוי ${escapeHTML(lure.name)}" width="500" height="312" loading="lazy" decoding="async"></div>
-<div class="card-identity"><div class="card-badges"><span class="card-type">${lure.typeLabel}</span>${s.badges.map(b=>`<span class="season-badge ${b.className}">${b.text}</span>`).join('')}</div><h3 id="lure-${lure.id}" lang="en">${escapeHTML(lure.name)}</h3><p class="card-subtitle">${lure.subtitle}</p>${monthBar(lure)}<div class="fish-tags">${lure.fish.map(fishTag).join('')}</div></div></div>
+<div class="card-identity"><div class="card-badges"><span class="card-type">${lure.typeLabel}</span>${s.badges.map(b=>`<span class="season-badge ${b.className}">${b.text}</span>`).join('')}</div><h3 id="lure-${lure.id}" lang="en">${escapeHTML(lure.name)}</h3><p class="card-subtitle">${lure.subtitle}</p>${monthBar(lure)}<div class="fish-tags">${lure.fish.map(fishTag).join('')}</div>${researchFish(lure)}</div></div>
 ${motionGraphic(lure)}
 <div class="method-block"><span class="method-title">כך עובדים איתו</span><ol class="method-steps">${lure.methods.map((m,i)=>`<li><span class="step-num">${i+1}</span><span>${m}</span></li>`).join('')}</ol></div>
 <div class="card-bottom"><div class="stat"><span>קצב</span><strong>${p.pace}</strong><span class="pace-bars pace-${p.pace==='איטי'?1:p.pace==='בינוני'?2:3}" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="stat"><span>אזור</span><strong>${p.water}</strong></div><a class="share-link" href="https://wa.me/?text=${encodeURIComponent(shareText)}" target="_blank" rel="noopener noreferrer" aria-label="שלח את ${escapeHTML(lure.name)} בוואטסאפ">שלח בוואטסאפ ↗</a></div>
