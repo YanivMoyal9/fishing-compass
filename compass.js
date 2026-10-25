@@ -165,10 +165,20 @@ function renderToday() {
 
 /* ---------- spots within a beach: 200 m strips ranked per fish (data/zones/<id>.json, built by zones_score.js) ---------- */
 const ZONES = { "חברת חשמל": "hashmal" }, zoneData = {};
+// Leaflet is loaded only when a beach has spots (vendor copy, cached for offline use; map tiles need the network)
+let leafletP = null, spotMap = null;
+const loadLeaflet = () => leafletP || (leafletP = new Promise((ok, no) => {
+  const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "vendor/leaflet/leaflet.css"; document.head.append(css);
+  const js = document.createElement("script"); js.src = "vendor/leaflet/leaflet.js"; js.onload = () => ok(window.L); js.onerror = () => { leafletP = null; no(); }; document.head.append(js);
+}));
+const move = (p, bearing, d) => { const R = 6371000, b = bearing * Math.PI / 180, la = p[0] * Math.PI / 180, lo = p[1] * Math.PI / 180, r = d / R;
+  const la2 = Math.asin(Math.sin(la) * Math.cos(r) + Math.cos(la) * Math.sin(r) * Math.cos(b));
+  return [la2 * 180 / Math.PI, (lo + Math.atan2(Math.sin(b) * Math.sin(r) * Math.cos(la), Math.cos(r) - Math.sin(la) * Math.sin(la2))) * 180 / Math.PI]; };
+const fmtLL = s => `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`;
 async function renderSpots(b) {
   const el = $("#spots"), id = ZONES[b.name];
-  if (!id) { el.hidden = true; el.innerHTML = ""; return; }
-  if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=1`)).json(); } catch (e) { el.hidden = true; return; } }
+  if (!id) { el.hidden = true; el.innerHTML = ""; if (spotMap) { spotMap.remove(); spotMap = null; } return; }
+  if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=3`)).json(); } catch (e) { el.hidden = true; return; } }
   if (state.beach !== b.name) return;
   const z = zoneData[id], month = +state.day.slice(5, 7), winter = [11, 12, 1, 2, 3].includes(month);
   const inSeason = new Set(E.fishFor(b, month).now.map(r => r.sp.id));
@@ -178,37 +188,65 @@ async function renderSpots(b) {
   const sp = z.species[sid], sc = sp[winter ? "scoresWinter" : "scores"];
   const ranked = z.strips.map((s, i) => ({ s, i, v: sc[i] })).filter(r => r.v != null).sort((p, q) => q.v - p.v);
   const top = ranked.slice(0, 3), pos = new Map(top.map((r, k) => [r.i, k + 1]));
-  // vertical strip map: north up, sea on the left, land on the right
-  const rows = z.strips.map((s, i) => ({ s, i })).sort((p, q) => q.s.a - p.s.a), H = 13;
-  const vs = ranked.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs), fill = v => `hsl(172 55% ${90 - 50 * (hi > lo ? (v - lo) / (hi - lo) : 0.5)}%)`; // stretched per fish so differences show
-  const svg = `<svg class="spot-map" direction="ltr" viewBox="0 0 300 ${rows.length * H + 24}" role="img" aria-label="מפת רצועות החוף: צבע כהה יותר = מתאים יותר ל${esc(sp.name)}">
-    <text x="4" y="12" class="sm-lbl">← ים (מערב)</text><text x="296" y="12" text-anchor="end" class="sm-lbl">צפון ↑</text>
-    ${rows.map(({ s, i }, k) => { const y = 18 + k * H, v = sc[i], n = pos.get(i);
-      const sea = !s.ok ? `<rect x="0" y="${y}" width="190" height="${H - 1}" class="${s.reason && s.reason.startsWith("חזית") ? "sm-closed" : "sm-none"}"/>`
-        : `<rect x="0" y="${y}" width="190" height="${H - 1}" style="fill:${fill(v)}"${s.outside ? ' class="sm-out"' : ""}/>`;
-      return `<g data-i="${i}" class="sm-row${n ? " is-top" : ""}">${sea}<rect x="190" y="${y}" width="110" height="${H - 1}" class="sm-land"/>
-        ${s.a === z.breakwater ? `<rect x="120" y="${y + 3}" width="70" height="${H - 7}" class="sm-bw"/>` : ""}
-        ${n ? `<circle cx="170" cy="${y + H / 2 - 0.5}" r="6" class="sm-pin"/><text x="170" y="${y + H / 2 + 3}" text-anchor="middle" class="sm-pin-t">${n}</text>` : ""}
-        <text x="196" y="${y + H - 3}" class="sm-t">${s.a === z.breakwater ? "שובר התחנה" : s.ok ? (s.outside ? "מחוץ לחוף" : "") : s.reason && s.reason.startsWith("חזית") ? "תחנת הכוח" : ""}</text></g>`; }).join("")}
-  </svg>`;
+  const vs = ranked.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs), t = v => hi > lo ? (v - lo) / (hi - lo) : 0.5; // stretched per fish so differences show
+  const fill = v => `hsl(${Math.round(55 - 55 * t(v))} 90% ${Math.round(58 - 10 * t(v))}%)`; // yellow → red = more suitable
   const card = (r, n) => { const s = r.s, ll = `${s.lat},${s.lon}`;
     return `<li class="spot ${E.level(r.v).c}"><header><span class="rk">${n}</span><b>${esc(s.place)}</b><span class="rv">${r.v}</span></header>
       ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}
       <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>
-      <p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a> · <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">מפה</a></p></li>`; };
+      <p class="spot-ll">📍 נקודת עמידה (קו המים): <bdi dir="ltr">${fmtLL(s)}</bdi> <button type="button" class="copy-ll" data-ll="${fmtLL(s)}">העתקה</button></p>
+      <p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a> · <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Google Maps</a> · <button type="button" class="show-on-map" data-i="${r.i}">הצגה במפה</button></p></li>`; };
   el.hidden = false;
+  if (spotMap) { spotMap.remove(); spotMap = null; }
   el.innerHTML = `<h2>נקודות בחוף</h2>
     <p class="hint">רצועות של 200 מ׳ לאורך החוף, מדורגות לדג שבחרתם לפי צבע המים, צלילות, עומק, מבנים ומים חמים. הציון יחסי לחוף הזה. הוא מתאר תנאים, לא תפיסות.</p>
     <label class="spot-pick"><span>דג מטרה</span><select id="spotFish">${ids.map(k => `<option value="${k}" ${k === sid ? "selected" : ""}>${esc(z.species[k].name)}${inSeason.has(k) ? "" : " (לא בעונה)"}</option>`).join("")}</select></label>
     <p class="spot-why"><b>מה מחפשים:</b> ${esc(sp.why)}${winter ? " · בחורף נלקחת בחשבון פלומת המים החמים." : ""}</p>
-    <div class="spot-wrap">${svg}<ol class="spot-list">${top.map((r, k) => card(r, k + 1)).join("")}</ol></div>
+    <div class="spot-map-box" id="spotMap" dir="ltr" role="region" aria-label="מפת לוויין של רצועות החוף"><p class="hint">טוען מפה…</p></div>
+    <p class="spot-legend"><span class="lg-bar"></span> צהוב = פחות מתאים, אדום = יותר מתאים · <span class="lg-pin">1</span> שלוש הרצועות המובילות · ${z.strips.some(s => s.ok && s.outside) ? `<span class="lg-out"></span> מחוץ לחוף · ` : ""}<span class="lg-closed"></span> סגור · לחיצה על רצועה מציגה פרטים</p>
     <div id="spotPicked"></div>
+    <ol class="spot-list">${top.map((r, k) => card(r, k + 1)).join("")}</ol>
     <p class="spot-look">👀 <b>בשטח, חפשו:</b> ${esc(sp.look)}</p>
-    <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p></details>`;
+    <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>נקודת העמידה היא קו המים בתמונות הלוויין (דיוק של כ-30 מ׳; קו המים זז עם הגלים והעונה). הרצועה הצבועה מגיעה עד כ-220 מ׳ לתוך הים. תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p></details>`;
+  const pick = i => { const s = z.strips[i];
+    $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, i, v: sc[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; wire(); };
+  const wire = () => {
+    $$("#spots .copy-ll").forEach(btn => btn.onclick = () => { try { navigator.clipboard.writeText(btn.dataset.ll); btn.textContent = "הועתק ✓"; } catch (e) { /* clipboard blocked */ } });
+    $$("#spots .show-on-map").forEach(btn => btn.onclick = () => { const f = spotMap && spotMap._spot; if (!f) return; f.focus(+btn.dataset.i); $("#spotMap").scrollIntoView({ behavior: "smooth", block: "center" }); });
+  };
+  wire();
   $("#spotFish").onchange = e => { store.set("compass-spot-fish", e.target.value); renderSpots(b); };
-  $$("#spots .sm-row").forEach(g => g.onclick = () => { const i = +g.dataset.i, s = z.strips[i];
-    $$("#spots .sm-row").forEach(x => x.classList.toggle("is-sel", x === g));
-    $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, v: sc[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; });
+  let L; try { L = await loadLeaflet(); } catch (e) { $("#spotMap").innerHTML = '<p class="hint">המפה לא נטענה (אין חיבור). הנקודות והקואורדינטות למטה עדיין תקפות.</p>'; return; }
+  const box = $("#spotMap"); if (!box || state.beach !== b.name || spotMap) return; box.innerHTML = "";
+  const map = spotMap = L.map(box, { scrollWheelZoom: false, zoomSnap: 0.25 });
+  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Esri, Maxar, Earthstar Geographics" }).addTo(map);
+  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" });
+  L.control.layers({ "לוויין": sat, "מפה": osm }, null, { position: "topleft" }).addTo(map);
+  const along = z.az + 90, layers = {}, pts = [];
+  const popup = (s, v, n) => `<div dir="rtl" class="spot-pop"><b>${n ? "#" + n + " · " : ""}${esc(s.place)}</b> · ציון ${v} ל${esc(sp.name)}<br>${s.desc.slice(0, 3).map(esc).join(" · ")}<br><bdi dir="ltr">${fmtLL(s)}</bdi><br><a href="https://waze.com/ul?ll=${s.lat},${s.lon}&navigate=yes" target="_blank" rel="noopener">ניווט ב-Waze</a></div>`;
+  z.strips.forEach((s, i) => {
+    const p0 = s.ok ? [s.lat, s.lon] : s.ref, a = move(p0, along, -100), c = move(p0, along, 100);
+    const poly = [a, c, move(c, z.az, 220), move(a, z.az, 220)];
+    if (!s.ok) { if (s.closed) L.polygon(poly, { color: "#555", weight: 1, fillColor: "#777", fillOpacity: 0.5, dashArray: "3 3" }).bindTooltip(s.reason).addTo(map); return; }
+    const v = sc[i], n = pos.get(i);
+    const pg = L.polygon(poly, { color: "#fff", weight: n ? 2.5 : 1, opacity: 0.9, fillColor: fill(v), fillOpacity: 0.5, dashArray: s.outside ? "6 4" : null }).addTo(map);
+    pg.bindPopup(popup(s, v, n)); pg.on("click", () => pick(i));
+    layers[i] = pg; pts.push([s.lat, s.lon], move(p0, z.az, 220));
+    if (n) L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "spot-pin", html: `<b>${n}</b>`, iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, title: `#${n} ${s.place}` })
+      .bindPopup(popup(s, v, n)).on("click", () => pick(i)).addTo(map);
+  });
+  map.fitBounds(L.latLngBounds(pts), { padding: [12, 12] });
+  map._spot = { focus: i => { const pg = layers[i]; if (!pg) return; map.setView(pg.getBounds().getCenter(), 17); pg.openPopup(); pick(i); } };
+  // where am I: the strip nearest to the phone's location
+  const Loc = L.Control.extend({ options: { position: "topright" }, onAdd() { const btn = L.DomUtil.create("button", "spot-locate"); btn.type = "button"; btn.textContent = "📍 איפה אני";
+    L.DomEvent.disableClickPropagation(btn); btn.onclick = () => map.locate({ setView: false, enableHighAccuracy: true }); return btn; } });
+  new Loc().addTo(map);
+  let me = null;
+  map.on("locationfound", e => { if (me) me.remove(); me = L.circle(e.latlng, { radius: Math.max(e.accuracy, 8), color: "#1a73e8", weight: 2, fillOpacity: 0.25 }).addTo(map);
+    let best = null; z.strips.forEach((s, i) => { if (!s.ok) return; const d = map.distance(e.latlng, [s.lat, s.lon]); if (!best || d < best.d) best = { d, i }; });
+    if (best && best.d < 600) { map.setView(e.latlng, 17); pick(best.i); $("#spotPicked").insertAdjacentHTML("afterbegin", `<p class="hint">אתם בערך ב-${esc(z.strips[best.i].place)} (${Math.round(best.d)} מ׳ מנקודת הרצועה).</p>`); }
+    else $("#spotPicked").innerHTML = `<p class="hint">אתם לא בחוף הזה כרגע${best ? ` (${(best.d / 1000).toFixed(1)} ק״מ מהרצועה הקרובה)` : ""}.</p>`; });
+  map.on("locationerror", () => { $("#spotPicked").innerHTML = '<p class="hint">לא הצלחנו לקבל מיקום. בדקו שהרשאת מיקום פתוחה לאתר.</p>'; });
 }
 
 /* ---------- ranking ---------- */
