@@ -160,6 +160,55 @@ function renderToday() {
   }).join("");
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
   $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`;
+  renderSpots(b);
+}
+
+/* ---------- spots within a beach: 200 m strips ranked per fish (data/zones/<id>.json, built by zones_score.js) ---------- */
+const ZONES = { "חברת חשמל": "hashmal" }, zoneData = {};
+async function renderSpots(b) {
+  const el = $("#spots"), id = ZONES[b.name];
+  if (!id) { el.hidden = true; el.innerHTML = ""; return; }
+  if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=1`)).json(); } catch (e) { el.hidden = true; return; } }
+  if (state.beach !== b.name) return;
+  const z = zoneData[id], month = +state.day.slice(5, 7), winter = [11, 12, 1, 2, 3].includes(month);
+  const inSeason = new Set(E.fishFor(b, month).now.map(r => r.sp.id));
+  const ids = Object.keys(z.species).sort((p, q) => inSeason.has(q) - inSeason.has(p));
+  let sid = store.get("compass-spot-fish", "");
+  if (!z.species[sid]) sid = ids.find(k => k === state.target) || ids[0];
+  const sp = z.species[sid], sc = sp[winter ? "scoresWinter" : "scores"];
+  const ranked = z.strips.map((s, i) => ({ s, i, v: sc[i] })).filter(r => r.v != null).sort((p, q) => q.v - p.v);
+  const top = ranked.slice(0, 3), pos = new Map(top.map((r, k) => [r.i, k + 1]));
+  // vertical strip map: north up, sea on the left, land on the right
+  const rows = z.strips.map((s, i) => ({ s, i })).sort((p, q) => q.s.a - p.s.a), H = 13;
+  const vs = ranked.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs), fill = v => `hsl(172 55% ${90 - 50 * (hi > lo ? (v - lo) / (hi - lo) : 0.5)}%)`; // stretched per fish so differences show
+  const svg = `<svg class="spot-map" direction="ltr" viewBox="0 0 300 ${rows.length * H + 24}" role="img" aria-label="מפת רצועות החוף: צבע כהה יותר = מתאים יותר ל${esc(sp.name)}">
+    <text x="4" y="12" class="sm-lbl">← ים (מערב)</text><text x="296" y="12" text-anchor="end" class="sm-lbl">צפון ↑</text>
+    ${rows.map(({ s, i }, k) => { const y = 18 + k * H, v = sc[i], n = pos.get(i);
+      const sea = !s.ok ? `<rect x="0" y="${y}" width="190" height="${H - 1}" class="${s.reason && s.reason.startsWith("חזית") ? "sm-closed" : "sm-none"}"/>`
+        : `<rect x="0" y="${y}" width="190" height="${H - 1}" style="fill:${fill(v)}"${s.outside ? ' class="sm-out"' : ""}/>`;
+      return `<g data-i="${i}" class="sm-row${n ? " is-top" : ""}">${sea}<rect x="190" y="${y}" width="110" height="${H - 1}" class="sm-land"/>
+        ${s.a === z.breakwater ? `<rect x="120" y="${y + 3}" width="70" height="${H - 7}" class="sm-bw"/>` : ""}
+        ${n ? `<circle cx="170" cy="${y + H / 2 - 0.5}" r="6" class="sm-pin"/><text x="170" y="${y + H / 2 + 3}" text-anchor="middle" class="sm-pin-t">${n}</text>` : ""}
+        <text x="196" y="${y + H - 3}" class="sm-t">${s.a === z.breakwater ? "שובר התחנה" : s.ok ? (s.outside ? "מחוץ לחוף" : "") : s.reason && s.reason.startsWith("חזית") ? "תחנת הכוח" : ""}</text></g>`; }).join("")}
+  </svg>`;
+  const card = (r, n) => { const s = r.s, ll = `${s.lat},${s.lon}`;
+    return `<li class="spot ${E.level(r.v).c}"><header><span class="rk">${n}</span><b>${esc(s.place)}</b><span class="rv">${r.v}</span></header>
+      ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}
+      <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>
+      <p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a> · <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">מפה</a></p></li>`; };
+  el.hidden = false;
+  el.innerHTML = `<h2>נקודות בחוף</h2>
+    <p class="hint">רצועות של 200 מ׳ לאורך החוף, מדורגות לדג שבחרתם לפי צבע המים, צלילות, עומק, מבנים ומים חמים. הציון יחסי לחוף הזה. הוא מתאר תנאים, לא תפיסות.</p>
+    <label class="spot-pick"><span>דג מטרה</span><select id="spotFish">${ids.map(k => `<option value="${k}" ${k === sid ? "selected" : ""}>${esc(z.species[k].name)}${inSeason.has(k) ? "" : " (לא בעונה)"}</option>`).join("")}</select></label>
+    <p class="spot-why"><b>מה מחפשים:</b> ${esc(sp.why)}${winter ? " · בחורף נלקחת בחשבון פלומת המים החמים." : ""}</p>
+    <div class="spot-wrap">${svg}<ol class="spot-list">${top.map((r, k) => card(r, k + 1)).join("")}</ol></div>
+    <div id="spotPicked"></div>
+    <p class="spot-look">👀 <b>בשטח, חפשו:</b> ${esc(sp.look)}</p>
+    <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p></details>`;
+  $("#spotFish").onchange = e => { store.set("compass-spot-fish", e.target.value); renderSpots(b); };
+  $$("#spots .sm-row").forEach(g => g.onclick = () => { const i = +g.dataset.i, s = z.strips[i];
+    $$("#spots .sm-row").forEach(x => x.classList.toggle("is-sel", x === g));
+    $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, v: sc[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; });
 }
 
 /* ---------- ranking ---------- */
