@@ -6,15 +6,20 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&a
 const REGIONS = ["צפון", "שרון", "מרכז", "דרום", "אילת", "כנרת"];
 const DAY = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* blocked */ } } };
-const state = { tab: store.get("compass-tab", "today"), beach: store.get("compass-beach", "חברת חשמל"), day: null, rankSession: "best", rankRegion: "all" };
+const state = { tab: store.get("compass-tab", "today"), beach: store.get("compass-beach", "חברת חשמל"), day: null, rankSession: "best", rankRegion: "all", boat: false, target: store.get("compass-target", "") };
+// IMS sea-forecast zone per region
+const ZONE = { "צפון": "212", "שרון": "210", "מרכז": "210", "דרום": "213", "אילת": "214", "כנרת": "211" };
+const DIR8 = d => ["צפון", "צפון-מזרח", "מזרח", "דרום-מזרח", "דרום", "דרום-מערב", "מערב", "צפון-מערב"][Math.round(((d % 360) + 360) % 360 / 45) % 8];
 let FC = null;
 const todayKey = () => E.il(Date.now()).key;
 
 /* ---------- calculation per beach and day ---------- */
 const cache = new Map();
-function beachDay(b, key) {
-  const ck = b.name + key + (FC ? FC.at : 0); if (cache.has(ck)) return cache.get(ck);
-  const rows = (FC && FC.data[b.group]) || [];
+const canBoat = b => ["marina", "port", "breakwater"].includes(b.type) && b.water === "med" && FC && FC.data[b.group + "@boat"];
+function beachDay(b, key, boat) {
+  boat = !!boat && canBoat(b);
+  const ck = b.name + key + (FC ? FC.at : 0) + (boat ? "@boat" : ""); if (cache.has(ck)) return cache.get(ck);
+  const rows = (FC && FC.data[b.group + (boat ? "@boat" : "")]) || [];
   const win = E.windows(key, b.lat, b.lon), lake = b.water === "lake";
   const tides = lake ? [] : E.tideExtremes(rows), moon = E.moonEvents(key, 1, b.lat, b.lon);
   const sessions = win.sessions.map(s => {
@@ -78,17 +83,49 @@ function sessionCard(s, b) {
     <details class="why"><summary>למה ${s.score}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? f.pts.toFixed(1) : ""}</span> ${esc(f.label)}</li>`).join("")}</ul></details>
   </article>`;
 }
+// official IMS forecast for the beach's zone and day; warnings; Kinneret level
+function officialHtml(b, key) {
+  const o = FC && FC.official; if (!o) return "";
+  let h = "";
+  const z = o.sea && o.sea.zones[ZONE[b.region]];
+  if (z) {
+    const per = z.periods.filter(p => p.from.slice(0, 10) === key || p.to.slice(0, 10) === key).slice(0, 2);
+    if (per.length) h += `<div class="official"><b>תחזית רשמית — ${esc(z.name)}</b> <small>(השירות המטאורולוגי)</small><ul>` + per.map(p =>
+      `<li><span>${p.from.slice(11)}–${p.to.slice(11)}</span> גלים ${p.wave_cm ? p.wave_cm.join("–") + " ס״מ" : "—"} · רוח ${p.wind_kmh ? p.wind_kmh.join("–") + " קמ״ש" : "—"}${p.wind_dir ? " מ" + DIR8(p.wind_dir[0]) + (p.wind_dir[1] !== p.wind_dir[0] ? " עד " + DIR8(p.wind_dir[1]) : "") : ""}${p.water ? " · מים " + p.water + "°" : ""}</li>`).join("") + "</ul></div>";
+  }
+  // sea warnings always; other warnings (heat, rain, floods) only when they name this beach's area
+  const AREA = { "צפון": /גליל מערבי|הכרמל|חיפה|מישור החוף הצפוני|צפון הארץ/, "שרון": /השרון|מישור החוף/, "מרכז": /מישור החוף|גוש דן|תל אביב|המרכז/,
+    "דרום": /מישור החוף הדרומי|אשדוד|אשקלון|הנגב המערבי|הדרום/, "אילת": /אילת|הערבה/, "כנרת": /כנרת|כנרות|עמק הירדן|גליל תחתון|עמק בית שאן/ };
+  const warn = (o.warnings || []).filter(w => /גלים|ים סוער|ים גבוה|סערה|רוחות חזקות/.test(w.title + w.text) || AREA[b.region].test(w.text));
+  if (warn.length) h += `<details class="warnings"><summary>⚠️ ${warn.length} אזהרות רשמיות פעילות</summary><ul>${warn.map(w => `<li>${esc(w.text || w.title)}</li>`).join("")}</ul><a href="https://ims.gov.il/he/IMSWarnings" target="_blank" rel="noopener">לאתר השירות המטאורולוגי</a></details>`;
+  if (b.water === "lake" && o.kinneret) { const k = o.kinneret, below = k.lower_red - k.level;
+    h += `<p class="kinneret">מפלס הכנרת: <b>${k.level.toFixed(2)} מ׳</b> (${k.date.split("-").reverse().join("/")})${k.change7d != null ? ` · שבוע: ${k.change7d > 0 ? "+" : ""}${(k.change7d * 100).toFixed(1)} ס״מ` : ""}${below > 0 ? ` · ${below.toFixed(2)} מ׳ מתחת לקו האדום התחתון` : ""}</p>`; }
+  return h;
+}
+function navHtml(b) {
+  const ll = `${b.lat},${b.lon}`;
+  return `<p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">ניווט ב-Waze</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${ll}" target="_blank" rel="noopener">Google Maps</a>${b.parking ? ` · 🅿️ חניה כ-${b.parking.m} מ׳${b.parking.fee ? " (" + b.parking.fee + ")" : ""}` : ""}</p>` +
+    (b.depth ? `<p class="depth">🌊 עומק: ${b.depth.to5 ? `5 מ׳ במרחק ~${b.depth.to5} מ׳` : "—"}${b.depth.to10 ? ` · 10 מ׳ במרחק ~${b.depth.to10} מ׳` : ""}${b.depth.at300 != null ? ` · ב-300 מ׳: ${b.depth.at300} מ׳` : ""} <small>(EMODnet, תא ~115 מ׳)</small></p>` : "") +
+    (b.zone ? `<p class="zone">🌡️ ${esc(b.zone)}</p>` : "");
+}
 function renderToday() {
   if (!FC) return;
   const b = beachByName(state.beach); if (!state.day) state.day = todayKey();
   dayChips($("#dayChips"), state.day, k => { state.day = k; renderToday(); });
-  const r = beachDay(b, state.day);
+  const boat = state.boat && canBoat(b);
+  const r = beachDay(b, state.day, boat);
+  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions);
   $("#beachHead").innerHTML = `<h2>${esc(b.name)} <small>${esc(b.region)}</small></h2>
     <p class="beach-meta">${esc(TYPE_NAMES[b.type] || "")}${b.note ? " · " + esc(b.note) : ""}</p>
     ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
-    <p class="astro">אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>`;
+    ${navHtml(b)}
+    ${canBoat(b) ? `<label class="boat-toggle"><input type="checkbox" id="boatToggle" ${boat ? "checked" : ""}> מצב סירה (בטא): תנאי ים פתוח ~11 ק״מ מהחוף</label>` : ""}
+    <p class="astro">אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>
+    <p class="astro">✨ שעת הזהב ${E.hm(gold[0][0])}–${E.hm(gold[0][1])} · ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}${best ? ` · <b>השעה הכי טובה: ${String(best.h).padStart(2, "0")}:00</b>${best.s ? " (" + best.s.name + ")" : ""}` : ""}</p>
+    ${officialHtml(b, state.day)}`;
+  const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
   $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
-  $$("#sessions .lure-link").forEach(btn => btn.onclick = () => openArsenal(btn.dataset.code));
+  $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
   // hourly comfort strip
   $("#hourly").innerHTML = r.rows.filter(x => { const h = E.il(x.T).h; return h >= 4 && h <= 21; }).map(x => {
     const c = E.comfort(x), h = E.il(x.T).h;
@@ -127,13 +164,40 @@ function fishRow({ sp, peak, tempNote }, month, water) {
   const lures = [...sp.lures, ...(sp.lures2 || [])].filter(c => c !== "BAIT").map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ");
   return `<article class="fish-card">
     <header><h3>${esc(sp.name)}${peak ? ' <em class="peak">שיא</em>' : ""}</h3><span class="layer">${sp.layer === "upper" ? "מים עליונים" : sp.layer === "bottom" ? "חלק תחתון" : "בכל גוף המים"}${sp.zone ? " · " + esc(sp.zone) : ""}</span></header>
+    ${sp.lat ? `<p class="latin"><i>${esc(sp.lat)}</i>${sp.aka && sp.aka.length ? " · נקרא גם: " + sp.aka.map(esc).join(", ") : ""}</p>` : ""}
     <div class="cal" aria-label="עונה">${cal}</div>
-    ${sp.bait ? `<p>${esc(sp.work)}</p>` : `<p class="lures">${lures}</p><p>${esc(sp.size)}${sp.work ? " · " + esc(sp.work) : ""}${sp.when ? " · " + esc(sp.when) : ""}</p>`}
+    ${sp.active && sp.active.length ? `<p class="active">🕑 הכי פעיל: ${sp.active.map(a => ACTIVE_NAMES[a]).join(", ")}${sp.temp ? ` · מים ${sp.temp[0]}–${sp.temp[1]}°` : ""}</p>` : sp.temp ? `<p class="active">מים ${sp.temp[0]}–${sp.temp[1]}°</p>` : ""}
+    ${lures ? `<p class="lures">${lures}</p>` : ""}
+    <p>${sp.size ? esc(sp.size) + " · " : ""}${esc(sp.work || "")}${sp.when ? " · " + esc(sp.when) : ""}</p>
+    ${sp.colors ? `<p class="colors">🎨 צבעים: ${esc(sp.colors)}</p>` : ""}
     ${tempNote ? `<p class="warn">🌡️ ${tempNote}</p>` : ""}
     ${sp.min ? `<p class="min">מינימום חוקי: ${sp.min} ס״מ</p>` : ""}
     ${sp.note ? `<p class="note">${esc(sp.note)}</p>` : ""}
+    ${SEASON_DISPUTE[sp.id] ? `<p class="note">⚖️ ${esc(SEASON_DISPUTE[sp.id])}</p>` : ""}
     ${sp.legal && sp.legal[water] ? `<p class="warn">⚖️ ${esc(sp.legal[water])}</p>` : ""}
   </article>`;
+}
+/* ---------- where to fish for a chosen species ---------- */
+function renderTarget() {
+  const sel = $("#targetFish");
+  if (!sel.options.length) sel.innerHTML = `<option value="">בחרו דג…</option>` + SPECIES.filter(s => !s.caution && !(s.protectedIn && s.protectedIn.length === s.waters.length)).sort((a, b) => a.name.localeCompare(b.name, "he")).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+  sel.value = state.target; sel.onchange = () => { state.target = sel.value; store.set("compass-target", sel.value); renderTarget(); };
+  const sp = SPECIES.find(s => s.id === state.target), out = $("#targetList");
+  if (!sp || !FC) { out.innerHTML = ""; return; }
+  const month = E.il(Date.now()).mo, key = todayKey();
+  const rows = BEACHES.map(b => {
+    const sst = FC.data[b.group] ? (FC.data[b.group].find(r => Math.abs(r.T - Date.now()) < 36e5) || {}).sst : null;
+    const fit = E.speciesFit(b, sp, month, sst); if (!fit) return null;
+    const day = beachDay(b, key), act = sp.active || [];
+    // sessions that match the fish's active hours (dawn → morning, dusk/night → evening, day → midday)
+    const want = new Set([...(act.includes("dawn") ? ["morning"] : []), ...(act.includes("day") ? ["midday"] : []), ...(act.includes("dusk") || act.includes("night") ? ["evening"] : [])]);
+    const ss = day.sessions.filter(s => !s.na && (!want.size || want.has(s.id))).sort((a, c) => c.score - a.score)[0];
+    if (!ss) return null;
+    return { b, fit, s: ss, rank: Math.round(0.6 * fit.score + 0.4 * ss.score) };
+  }).filter(Boolean).filter(r => r.fit.score >= 40).sort((a, c) => c.rank - a.rank).slice(0, 15);
+  out.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" class="rank-row ${E.level(r.rank).c}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)} <small>${esc(r.b.region)} · ${r.fit.why.join(", ")}</small></span>
+    <span class="rs">${r.s.name} ${E.hm(r.s.start)}</span><span class="rv">${r.rank}</span>${r.b.legal ? `<span class="rl" title="${esc(r.b.legal)}">⚖️</span>` : ""}</button></li>`).join("") : "<li class='empty'>אין חוף מתאים היום לדג הזה.</li>";
+  $$("#targetList .rank-row").forEach(btn => btn.onclick = () => { state.day = key; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
 function renderFish() {
   const b = beachByName(state.beach), month = E.il(Date.now()).mo;
@@ -145,8 +209,21 @@ function renderFish() {
     ${b.reports && b.reports.length ? `<p class="reports">דווחו כאן בעבר: ${b.reports.map(esc).join(" · ")}</p>` : ""}`;
   $("#fishNow").innerHTML = f.now.map(r => fishRow(r, month, b.water)).join("") || "<p>אין דגים בעונה לפי הנתונים שלנו.</p>";
   $("#fishOff").innerHTML = f.off.map(r => fishRow(r, month, b.water)).join("");
-  $("#fishProtected").innerHTML = f.protected.length ? `<h3>מוגנים כאן — אסור לדוג</h3><p>${f.protected.map(r => `<b>${esc(r.sp.name)}</b> (${esc(r.sp.note || "")})`).join(" · ")}</p>` : "";
-  $$("#tab-fish .lure-link").forEach(btn => btn.onclick = () => openArsenal(btn.dataset.code));
+  $("#fishProtected").innerHTML = (f.protected.length ? `<h3>מוגנים כאן — אסור לדוג</h3><p>${f.protected.map(r => `<b>${esc(r.name || r.sp && r.sp.name)}</b> (${esc(r.note || r.caution || "")})`).join(" · ")}</p>` : "") +
+    (f.caution.length ? `<h3>⚠️ דגי זהירות</h3><ul>${f.caution.map(s => `<li><b>${esc(s.name)}</b> <i>${esc(s.lat || "")}</i> — ${esc(s.caution)}</li>`).join("")}</ul>` : "");
+  $$("#tab-fish .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
+  renderTarget();
+}
+
+/* ---------- lure card: weights, colours, how to work it; link to the arsenal when it has this type ---------- */
+function lureCard(code) {
+  const i = LURE_INFO[code] || {}, dlg = $("#lureDialog");
+  dlg.innerHTML = `<form method="dialog"><h3>${esc(LURE_TYPES[code] || code)}</h3><dl>
+    ${i.w ? `<dt>משקל / גודל</dt><dd>${esc(i.w)}</dd>` : ""}${i.c && i.c !== "—" ? `<dt>צבעים</dt><dd>${esc(i.c)}</dd>` : ""}
+    ${i.r ? `<dt>איך עובדים</dt><dd>${esc(i.r)}</dd>` : ""}${i.where ? `<dt>איפה ומתי</dt><dd>${esc(i.where)}</dd>` : ""}</dl>
+    <div class="dlg-actions">${LURE_TO_ARSENAL[code] ? `<button type="button" id="toArsenal" class="primary">לדמויים בארסנל</button>` : ""}<button value="close">סגירה</button></div></form>`;
+  const go = $("#toArsenal"); if (go) go.onclick = () => { dlg.close(); openArsenal(code); };
+  dlg.showModal();
 }
 
 /* ---------- link into the lure arsenal (script.js) ---------- */

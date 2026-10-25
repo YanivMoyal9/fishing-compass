@@ -167,11 +167,12 @@ const level = s => s >= 80 ? { t: "מצוין", c: "lv-top" } : s >= 65 ? { t: "
 
 /* ---------- fish and lures for a beach ---------- */
 function fishFor(beach, month, sst) {
-  const res = { now: [], off: [], protected: [] };
+  const res = { now: [], off: [], protected: [], caution: [] };
   for (const sp of SPECIES) {
     if (!sp.waters.includes(beach.water)) continue;
     if (beach.water !== "lake" && !sp.habitats.includes(beach.type) && !(beach.reports || []).includes(sp.name)) continue;
     if (sp.protectedIn && sp.protectedIn.includes(beach.water)) { res.protected.push(sp); continue; }
+    if (sp.caution) { res.caution.push(sp); continue; }
     const peak = sp.p && sp.p.includes(month), inS = sp.m.includes(month);
     let tempNote = null;
     if (sst != null && sp.temp) { if (sst < sp.temp[0] - 1) tempNote = "המים קרים לו"; else if (sst > sp.temp[1] + 1) tempNote = "המים חמים לו"; }
@@ -185,7 +186,7 @@ function fishFor(beach, month, sst) {
 function luresFor(fishNow, layer) {
   const score = {};
   for (const { sp, peak, tempNote } of fishNow) {
-    if (sp.bait || tempNote) continue;
+    if (sp.bait || tempNote || sp.caution) continue;
     if (layer && sp.layer !== "all" && sp.layer !== layer) continue;
     const w = peak ? 1.5 : 1;
     sp.lures.forEach(c => score[c] = (score[c] || 0) + 2 * w); (sp.lures2 || []).forEach(c => score[c] = (score[c] || 0) + w);
@@ -193,5 +194,35 @@ function luresFor(fishNow, layer) {
   return Object.entries(score).filter(([c]) => c !== "BAIT").sort((a, b) => b[1] - a[1]).map(([c]) => c);
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, lakeIndex, tip, comfort, level, fishFor, luresFor, HOUR };
+/* ---------- fit of one species to one beach (0–100), for "where to fish for X" ----------
+   season: peak 90 · in season 70 · out of season 15 · +10 if reported at this beach · −25 if the habitat does not match the beach type
+   · −4 per °C outside the preferred water range (at most −12). Protected or caution species: null. */
+function speciesFit(beach, sp, month, sst) {
+  if (!sp.waters.includes(beach.water) || sp.caution || (sp.protectedIn && sp.protectedIn.includes(beach.water))) return null;
+  let s = sp.p && sp.p.includes(month) ? 90 : sp.m.includes(month) ? 70 : 15;
+  const why = [s >= 90 ? "שיא העונה" : s >= 70 ? "בעונה" : "מחוץ לעונה"];
+  if ((beach.reports || []).includes(sp.name)) { s += 10; why.push("דווח בחוף הזה"); }
+  if (beach.water !== "lake" && !sp.habitats.includes(beach.type)) { s -= 25; why.push("סוג החוף פחות מתאים"); }
+  if (sst != null && sp.temp) { const d = sst < sp.temp[0] ? sp.temp[0] - sst : sst > sp.temp[1] ? sst - sp.temp[1] : 0; if (d > 0) { s -= Math.min(12, 4 * d); why.push(sst > sp.temp[1] ? "המים חמים לו" : "המים קרים לו"); } }
+  return { score: Math.max(0, Math.min(100, Math.round(s))), why };
+}
+
+/* ---------- golden hours and the best hour of a day ---------- */
+function goldenHours(key, lat, lon) {
+  const t = SunCalc.getTimes(new Date(ilTime(key, 12)), lat, lon), sr = il(+t.sunrise).hf, ss = il(+t.sunset).hf;
+  return [[sr, sr + 1], [ss - 1, ss]];
+}
+// best hour 05–21: fishing comfort × activity of the session that covers the hour (outside sessions: 35)
+function bestHour(rows, key, sessions) {
+  let best = null;
+  for (const r of rows) {
+    const p = il(r.T); if (p.key !== key || p.h < 5 || p.h > 21) continue;
+    const s = sessions.find(q => !q.na && p.h + 0.5 >= q.start && p.h + 0.5 <= q.end);
+    const v = (s ? s.score : 35) * comfort(r) / 100;
+    if (!best || v > best.v) best = { h: p.h, v, s };
+  }
+  return best;
+}
+
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, HOUR };
 })();

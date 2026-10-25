@@ -20,15 +20,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=2">
+<link rel="stylesheet" href="compass.css?v=3">
 <script src="vendor/suncalc.js" defer></script>
-<script src="data/species.js?v=2" defer></script>
-<script src="data/beaches.js?v=2" defer></script>
-<script src="engine.js?v=1" defer></script>
-<script src="forecast.js?v=1" defer></script>
+<script src="data/species.js?v=3" defer></script>
+<script src="data/beaches.js?v=3" defer></script>
+<script src="engine.js?v=2" defer></script>
+<script src="forecast.js?v=2" defer></script>
 <script src="script.js?v=16" defer></script>
 <script src="bubbles.js?v=3" defer></script>
-<script src="compass.js?v=2" defer></script>
+<script src="compass.js?v=4" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -92,6 +92,12 @@
 <!-- דגים -->
 <section class="container pane" data-tab="fish" id="tab-fish" hidden aria-labelledby="fishTitle">
 <h1 id="fishTitle" class="sr-only">דגים בחוף</h1>
+<section class="target card-lite" aria-labelledby="targetTitle">
+<h2 id="targetTitle">איפה לדוג את…</h2>
+<p class="hint">בחרו דג: החופים הכי מתאימים היום, לפי עונה, סוג החוף, טמפ׳ המים ומדד הסשן שבשעות שהדג פעיל.</p>
+<select id="targetFish" aria-label="בחירת דג"></select>
+<ol class="rank-list" id="targetList"></ol>
+</section>
 <div class="beach-head" id="fishHead"></div>
 <h2 class="sub">בעונה עכשיו</h2>
 <div class="fish-grid" id="fishNow"></div>
@@ -200,6 +206,7 @@
 </section>
 </main>
 
+<dialog class="lure-dialog" id="lureDialog"></dialog>
 <footer class="site-footer"><div class="container footer-inner">
 <span>מצפן הדייג</span>
 <span>תחזית: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ו-StormGlass · אסטרונומיה: SunCalc · המדד הוא הערכה, לא הבטחה</span>
