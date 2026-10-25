@@ -92,7 +92,7 @@ function sessionCard(s, b) {
   const lv = E.level(s.score), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
   const lures = E.luresFor(fish.now, s.tip.layer).slice(0, 3);
   const past = x.T1 < Date.now();
-  const fishLayer = fish.now.filter(r => !r.sp.bait && (r.sp.layer === "all" || r.sp.layer === s.tip.layer)).slice(0, 5).map(r => r.sp.name);
+  const fishLayer = fish.now.filter(r => !r.sp.bait && (r.sp.layer === "all" || r.sp.layer === s.tip.layer)).slice(0, 5).map(r => r.sp);
   return `<article class="sess ${lv.c}${past ? " is-past" : ""}">
     <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
     <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
@@ -104,7 +104,7 @@ function sessionCard(s, b) {
       <div><dt>לחץ</dt><dd>${fmtNum(x.p0)} ${x.dpS < -0.3 ? "↘" : x.dpS > 0.3 ? "↗" : "→"}</dd></div>
       ${x.sst != null ? `<div><dt>מים</dt><dd>${fmtNum(x.sst, 1)}°</dd></div>` : ""}
     </dl>
-    ${fishLayer.length ? `<p class="sess-fish"><b>דגים לשכבה הזו:</b> ${fishLayer.map(esc).join(" · ")}</p>` : ""}
+    ${fishLayer.length ? `<p class="sess-fish"><b>דגים לשכבה הזו:</b> ${fishLayer.map(f => `<button type="button" class="fish-link" data-fish="${f.id}">${esc(f.name)}</button>`).join(" · ")}</p>` : ""}
     ${lures.length ? `<p class="sess-lures"><b>דמויים:</b> ${lures.map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ")}</p>` : ""}
     <details class="why"><summary>למה ${s.score}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? f.pts.toFixed(1) : ""}</span> ${esc(f.label)}</li>`).join("")}</ul></details>
   </article>`;
@@ -152,6 +152,7 @@ function renderToday() {
   const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
   $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
   $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
+  $$("#sessions .fish-link").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   // hourly safety strip (Cormorant mechanics), all 24 hours
   $("#hourly").innerHTML = r.rows.map(x => {
     const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f;
@@ -203,7 +204,7 @@ async function renderSpots(b) {
   el.innerHTML = `<h2>נקודות בחוף</h2>
     <p class="hint">רצועות של 200 מ׳ לאורך החוף, מדורגות לדג שבחרתם לפי צבע המים, צלילות, עומק, מבנים ומים חמים. הציון יחסי לחוף הזה. הוא מתאר תנאים, לא תפיסות.</p>
     <label class="spot-pick"><span>דג מטרה</span><select id="spotFish">${ids.map(k => `<option value="${k}" ${k === sid ? "selected" : ""}>${esc(z.species[k].name)}${inSeason.has(k) ? "" : " (לא בעונה)"}</option>`).join("")}</select></label>
-    <p class="spot-why"><b>מה מחפשים:</b> ${esc(sp.why)}${winter ? " · בחורף נלקחת בחשבון פלומת המים החמים." : ""}</p>
+    <p class="spot-why"><button type="button" class="fish-link" data-fish="${sid}">📖 על ה${esc(sp.name)}</button> · <b>מה מחפשים:</b> ${esc(sp.why)}${winter ? " · בחורף נלקחת בחשבון פלומת המים החמים." : ""}</p>
     <div class="spot-map-box" id="spotMap" dir="ltr" role="region" aria-label="מפת לוויין של רצועות החוף"><p class="hint">טוען מפה…</p></div>
     <p class="spot-legend"><span class="lg-bar"></span> צהוב = פחות מתאים, אדום = יותר מתאים · <span class="lg-pin">1</span> שלוש הרצועות המובילות · ${z.strips.some(s => s.ok && s.outside) ? `<span class="lg-out"></span> מחוץ לחוף · ` : ""}<span class="lg-closed"></span> סגור · לחיצה על רצועה מציגה פרטים</p>
     <div id="spotPicked"></div>
@@ -217,6 +218,7 @@ async function renderSpots(b) {
     $$("#spots .show-on-map").forEach(btn => btn.onclick = () => { const f = spotMap && spotMap._spot; if (!f) return; f.focus(+btn.dataset.i); $("#spotMap").scrollIntoView({ behavior: "smooth", block: "center" }); });
   };
   wire();
+  $$("#spots .fish-link").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   $("#spotFish").onchange = e => { store.set("compass-spot-fish", e.target.value); renderSpots(b); };
   let L; try { L = await loadLeaflet(); } catch (e) { $("#spotMap").innerHTML = '<p class="hint">המפה לא נטענה (אין חיבור). הנקודות והקואורדינטות למטה עדיין תקפות.</p>'; return; }
   const box = $("#spotMap"); if (!box || state.beach !== b.name || spotMap) return; box.innerHTML = "";
@@ -291,6 +293,7 @@ function fishRow({ sp, peak, tempNote }, month, water) {
     ${sp.note ? `<p class="note">${esc(sp.note)}</p>` : ""}
     ${sp.src ? `<p class="latin">מקור העונה: ${esc(sp.src)}</p>` : ""}
     ${sp.legal && sp.legal[water] ? `<p class="warn">⚖️ ${esc(sp.legal[water])}</p>` : ""}
+    ${window.FISH_INFO && FISH_INFO[sp.id] ? `<button type="button" class="fish-more" data-fish="${sp.id}">📖 הכל על ה${esc(sp.name)}</button>` : ""}
   </article>`;
 }
 /* ---------- where to fish for a chosen species ---------- */
@@ -328,6 +331,7 @@ function renderFish() {
   $("#fishProtected").innerHTML = (f.protected.length ? `<h3>מוגנים כאן — אסור לדוג</h3><p>${f.protected.map(r => `<b>${esc(r.name || r.sp && r.sp.name)}</b> (${esc(r.note || r.caution || "")})`).join(" · ")}</p>` : "") +
     (f.caution.length ? `<h3>⚠️ דגי זהירות</h3><ul>${f.caution.map(s => `<li><b>${esc(s.name)}</b> <i>${esc(s.lat || "")}</i> — ${esc(s.caution)}</li>`).join("")}</ul>` : "");
   $$("#tab-fish .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
+  $$("#tab-fish .fish-more").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   renderTarget();
 }
 
@@ -340,6 +344,41 @@ function lureCard(code) {
     <div class="dlg-actions">${LURE_TO_ARSENAL[code] ? `<button type="button" id="toArsenal" class="primary">לדמויים בארסנל</button>` : ""}<button value="close">סגירה</button></div></form>`;
   const go = $("#toArsenal"); if (go) go.onclick = () => { dlg.close(); openArsenal(code); };
   dlg.showModal();
+}
+
+/* ---------- full fish profile (data/fish-info.js, built by build_fish_info.js from our fish dossiers) ---------- */
+const FISH_SECTIONS = [["זיהוי", "🔎"], ["איפה", "📍"], ["מתי", "📅"], ["תנאים", "🌊"], ["שיטות ודמויים", "🎣"], ["פיתיון", "🪱"], ["חוק", "⚖️"], ["בטיחות", "⚠️"], ["טיפים", "💡"]];
+const rich = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+function fishCard(id) {
+  const sp = SPECIES.find(s => s.id === id), info = (window.FISH_INFO || {})[id], dlg = $("#fishDialog"); if (!sp || !info) return;
+  const b = beachByName(state.beach), month = E.il(Date.now()).mo, x = info.intel || {};
+  const cal = MONTHS.map((m, i) => `<span class="${sp.p && sp.p.includes(i + 1) ? "pk" : sp.m.includes(i + 1) ? "in" : ""}${i + 1 === month ? " now" : ""}">${m}</span>`).join("");
+  const facts = [
+    sp.active && sp.active.length ? ["הכי פעיל", sp.active.map(a => ACTIVE_NAMES[a]).join(", ")] : x["הכי פעיל"] ? ["הכי פעיל", x["הכי פעיל"]] : null,
+    sp.temp ? ["מים", `${sp.temp[0]}–${sp.temp[1]}°`] : x["טמפ׳ מים מועדפת"] ? ["מים", x["טמפ׳ מים מועדפת"]] : null,
+    ["שכבה", sp.layer === "upper" ? "מים עליונים" : sp.layer === "bottom" ? "חלק תחתון" : "כל גוף המים"],
+    sp.min ? ["מינימום", sp.min + " ס״מ"] : x["גודל מינימלי"] ? ["מינימום", x["גודל מינימלי"]] : null,
+    x["רבייה"] ? ["רבייה", x["רבייה"]] : null
+  ].filter(Boolean);
+  const lures = [...sp.lures, ...(sp.lures2 || [])].filter(c => c !== "BAIT").map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ");
+  const sec = name => {
+    let items = (info.sections || {})[name] || [];
+    if (name === "שיטות ודמויים" && x["דמויים / מערכות"]) items = [...items, `**ציוד מומלץ:** ${x["דמויים / מערכות"]}`];
+    if (name === "חוק") items = [...items, ...[sp.legal && sp.legal[b.water], x["מוגן / אזהרה"], sp.caution].filter(Boolean).map(t => "**שימו לב:** " + t)];
+    const extra = name === "שיטות ודמויים" && lures ? `<p class="lures">${lures}</p>` : "";
+    return items.length || extra ? `<section><h4>${FISH_SECTIONS.find(s => s[0] === name)[1]} ${name}</h4>${items.length ? `<ul>${items.map(t => `<li>${rich(t)}</li>`).join("")}</ul>` : ""}${extra}</section>` : "";
+  };
+  const aka = info.aka || sp.aka || [];
+  dlg.innerHTML = `<form method="dialog"><header><h3>${esc(sp.name)}</h3>${info.lat || sp.lat ? `<p class="latin"><i>${esc(info.lat || sp.lat)}</i>${aka.length ? " · נקרא גם: " + aka.map(esc).join(", ") : ""}</p>` : ""}</header>
+    <div class="fish-cal" aria-label="עונה">${cal}</div><p class="hint">כהה = שיא · בהיר = בעונה · מסגרת = החודש</p>
+    <dl class="fish-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${/^[\d–\-°. ]+$/.test(v) ? `<bdi dir="ltr">${esc(v)}</bdi>` : esc(v)}</dd></div>`).join("")}</dl>
+    ${FISH_SECTIONS.map(([n]) => sec(n)).join("")}
+    <p class="hint">${info.src === "own" ? "פרופיל שכתבנו מהמחקר שלנו." : "סיכום במילים שלנו מתיקי הדגים שאספנו ומהמחקר על התקנות."} העונה והשעות לפי נתוני האפליקציה.</p>
+    <div class="dlg-actions">${sp.caution || (sp.protectedIn && sp.protectedIn.length === sp.waters.length) ? "" : `<button type="button" id="fishWhere" class="primary">איפה לדוג אותו היום</button>`}<button value="close">סגירה</button></div></form>`;
+  dlg.querySelectorAll(".lure-link").forEach(btn => btn.onclick = () => { dlg.close(); lureCard(btn.dataset.code); });
+  const go = $("#fishWhere");
+  if (go) go.onclick = () => { dlg.close(); state.target = id; store.set("compass-target", id); setTab("fish"); const t = $("#targetFish"); if (t) { t.value = id; renderTarget(); t.scrollIntoView({ behavior: "smooth", block: "start" }); } };
+  dlg.showModal(); dlg.scrollTop = 0;
 }
 
 /* ---------- link into the lure arsenal (script.js) ---------- */
