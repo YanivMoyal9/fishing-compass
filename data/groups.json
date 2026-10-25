@@ -1,0 +1,186 @@
+{
+ "north-g1": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 33,
+  "lon": 35.08,
+  "mlat": 33,
+  "mlon": 35.04
+ },
+ "north-g2": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 32.845,
+  "lon": 35.055,
+  "mlat": 32.845,
+  "mlon": 35.015
+ },
+ "north-g3": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 32.79,
+  "lon": 34.955,
+  "mlat": 32.79,
+  "mlon": 34.915
+ },
+ "north-g4": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 32.69,
+  "lon": 34.93,
+  "mlat": 32.69,
+  "mlon": 34.89
+ },
+ "north-g5": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 32.6,
+  "lon": 34.905,
+  "mlat": 32.6,
+  "mlon": 34.865
+ },
+ "north-g6": {
+  "region": "צפון",
+  "water": "med",
+  "lat": 32.56,
+  "lon": 34.9,
+  "mlat": 32.56,
+  "mlon": 34.86
+ },
+ "sharon-g1": {
+  "region": "שרון",
+  "water": "med",
+  "lat": 32.462,
+  "lon": 34.879,
+  "mlat": 32.462,
+  "mlon": 34.839
+ },
+ "sharon-g2": {
+  "region": "שרון",
+  "water": "med",
+  "lat": 32.405,
+  "lon": 34.865,
+  "mlat": 32.405,
+  "mlon": 34.825
+ },
+ "sharon-g3": {
+  "region": "שרון",
+  "water": "med",
+  "lat": 32.33,
+  "lon": 34.849,
+  "mlat": 32.33,
+  "mlon": 34.809
+ },
+ "sharon-g4": {
+  "region": "שרון",
+  "water": "med",
+  "lat": 32.22,
+  "lon": 34.81,
+  "mlat": 32.22,
+  "mlon": 34.77
+ },
+ "sharon-g5": {
+  "region": "שרון",
+  "water": "med",
+  "lat": 32.172,
+  "lon": 34.797,
+  "mlat": 32.172,
+  "mlon": 34.757
+ },
+ "center-g1": {
+  "region": "מרכז",
+  "water": "med",
+  "lat": 32.14,
+  "lon": 34.789,
+  "mlat": 32.14,
+  "mlon": 34.749
+ },
+ "center-g2": {
+  "region": "מרכז",
+  "water": "med",
+  "lat": 32.06,
+  "lon": 34.755,
+  "mlat": 32.06,
+  "mlon": 34.715
+ },
+ "center-g3": {
+  "region": "מרכז",
+  "water": "med",
+  "lat": 32.014,
+  "lon": 34.737,
+  "mlat": 32.014,
+  "mlon": 34.697
+ },
+ "south-g1": {
+  "region": "דרום",
+  "water": "med",
+  "lat": 31.858,
+  "lon": 34.665,
+  "mlat": 31.858,
+  "mlon": 34.625
+ },
+ "south-g2": {
+  "region": "דרום",
+  "water": "med",
+  "lat": 31.83,
+  "lon": 34.64,
+  "mlat": 31.83,
+  "mlon": 34.6
+ },
+ "south-g3": {
+  "region": "דרום",
+  "water": "med",
+  "lat": 31.8,
+  "lon": 34.62,
+  "mlat": 31.8,
+  "mlon": 34.58
+ },
+ "south-g4": {
+  "region": "דרום",
+  "water": "med",
+  "lat": 31.7,
+  "lon": 34.57,
+  "mlat": 31.7,
+  "mlon": 34.53
+ },
+ "south-g5": {
+  "region": "דרום",
+  "water": "med",
+  "lat": 31.6,
+  "lon": 34.5,
+  "mlat": 31.6,
+  "mlon": 34.46
+ },
+ "eilat-g1": {
+  "region": "אילת",
+  "water": "eilat",
+  "lat": 29.552,
+  "lon": 34.962,
+  "mlat": 29.5,
+  "mlon": 34.93
+ },
+ "kinneret-g1": {
+  "region": "כנרת",
+  "water": "lake",
+  "lat": 32.8,
+  "lon": 35.54,
+  "mlat": 32.8,
+  "mlon": 35.54
+ },
+ "kinneret-g2": {
+  "region": "כנרת",
+  "water": "lake",
+  "lat": 32.782,
+  "lon": 35.642,
+  "mlat": 32.782,
+  "mlon": 35.642
+ },
+ "kinneret-g3": {
+  "region": "כנרת",
+  "water": "lake",
+  "lat": 32.728,
+  "lon": 35.625,
+  "mlat": 32.728,
+  "mlon": 35.625
+ }
+}

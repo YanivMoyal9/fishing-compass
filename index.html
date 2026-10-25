@@ -4,34 +4,118 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a2a36">
-<meta name="description" content="ארסנל הז׳רז׳ור: דמויים לדיג מהחוף, שיטות עבודה, דגי מטרה וסינון לפי סוג ועונה.">
-<meta property="og:title" content="ארסנל הז׳רז׳ור | מדריך דמויים מהחוף">
-<meta property="og:description" content="איזה דמוי לשים בתיק? מדריך קצר לדמויים, דגי מטרה ושיטות עבודה.">
+<meta name="description" content="מצפן הדייג: איפה, מתי ועם מה לדוג — תחזית ומדד פעילות לכל 92 חופי הדיג בישראל, דגים בעונה, דמויים ויומן תפיסות.">
+<meta property="og:title" content="מצפן הדייג | איפה, מתי ועם מה לדוג">
+<meta property="og:description" content="תחזית ומדד פעילות לכל חופי הדיג בישראל, דגים בעונה ודמויים מתאימים.">
 <meta property="og:type" content="website">
-<title>ארסנל הז׳רז׳ור | מדריך דמויים מהחוף</title>
+<title>מצפן הדייג | איפה, מתי ועם מה לדוג</title>
 <link rel="icon" href="assets/favicon-48.png?v=3" sizes="48x48" type="image/png">
 <link rel="icon" href="assets/favicon-32.png?v=3" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3">
-<link rel="manifest" href="manifest.webmanifest?v=3">
-<meta name="apple-mobile-web-app-title" content="ז׳רז׳ור">
-<meta name="application-name" content="ז׳רז׳ור">
+<link rel="manifest" href="manifest.webmanifest?v=4">
+<meta name="apple-mobile-web-app-title" content="מצפן הדייג">
+<meta name="application-name" content="מצפן הדייג">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="preload" as="image" href="assets/hero-full.webp">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
+<link rel="stylesheet" href="compass.css?v=2">
+<script src="vendor/suncalc.js" defer></script>
+<script src="data/species.js?v=1" defer></script>
+<script src="data/beaches.js?v=1" defer></script>
+<script src="engine.js?v=1" defer></script>
+<script src="forecast.js?v=1" defer></script>
 <script src="script.js?v=16" defer></script>
 <script src="bubbles.js?v=3" defer></script>
+<script src="compass.js?v=2" defer></script>
 </head>
 <body>
-<a class="skip-link" href="#catalog">דלג לדמויים</a>
+<a class="skip-link" href="#app">דלג לתוכן</a>
 
-<main id="top">
+<header class="appbar">
+<div class="container appbar-inner">
+<a class="brand" href="#" aria-label="מצפן הדייג"><span class="brand-mark" aria-hidden="true">🧭</span><span><b>מצפן הדייג</b><small>איפה, מתי ועם מה לדוג</small></span></a>
+<button class="icon-btn" id="refresh" type="button" aria-label="רענון תחזית" title="רענון תחזית">↻</button>
+</div>
+<nav class="tabbar" aria-label="ניווט ראשי">
+<button type="button" data-go="today"><span aria-hidden="true">🌅</span>היום</button>
+<button type="button" data-go="rank"><span aria-hidden="true">🏆</span>חופים</button>
+<button type="button" data-go="fish"><span aria-hidden="true">🐟</span>דגים</button>
+<button type="button" data-go="lures"><span aria-hidden="true">🎣</span>דמויים</button>
+<button type="button" data-go="log"><span aria-hidden="true">📓</span>יומן</button>
+</nav>
+</header>
+
+<main id="app">
+<p class="load-state container" id="loadState" role="status">טוען תחזית…</p>
+
+<!-- היום -->
+<section class="container pane" data-tab="today" aria-labelledby="todayTitle">
+<h1 id="todayTitle" class="sr-only">הסשנים של היום</h1>
+<div class="picker">
+<label><span>אזור</span><select id="pickRegion"></select></label>
+<label><span>חוף</span><select id="pickBeach"></select></label>
+</div>
+<div class="chips" id="dayChips" role="group" aria-label="בחירת יום"></div>
+<div class="beach-head" id="beachHead"></div>
+<div class="sessions" id="sessions"></div>
+<section class="card-lite">
+<h2>נוחות דיג לפי שעה</h2>
+<p class="hint">0–100: רוח, כיוון רוח, גלים וגשם. לא מדד הפעילות של הדגים.</p>
+<div class="hourly" id="hourly"></div>
+</section>
+<p class="src-note" id="srcNote"></p>
+<details class="about">
+<summary>איך מחושב מדד הפעילות?</summary>
+<ul>
+<li><b>החלונות:</b> בוקר — חצי שעה לפני האור הראשון (שחר ימי), 3 שעות · צהריים 11:00–15:00 · ערב — שעתיים לפני האור האחרון, שעתיים וחצי.</li>
+<li><b>המדד (0–100):</b> בסיס 52 ועוד נקודות לפי הגאות (עולה אחרי שפל מעלה, יורדת לשפל מורידה), הלחץ (נמוך ויורד מעלה, גבוה ועולה מוריד), זריחת ירח בחלון, שעת הסשן ומצב הים. בכנרת — מגמת הלחץ והרוח.</li>
+<li><b>השכבה:</b> כשהלחץ ≤ 1014 ויורד במהלך החלון — לעבוד במים העליונים; אחרת — בחלק התחתון.</li>
+<li><b>הדגים והדמויים:</b> לפי העונה, סוג החוף, טמפ׳ המים והשכבה. הפירוט בלשונית "דגים".</li>
+<li>המדד הוא הערכה סטטיסטית. בשטח קובעים גם זרם, צבע המים ונוכחות פיתיון.</li>
+</ul>
+</details>
+</section>
+
+<!-- דירוג חופים -->
+<section class="container pane" data-tab="rank" hidden aria-labelledby="rankTitle">
+<h1 id="rankTitle" class="pane-title">איפה הכי כדאי לדוג?</h1>
+<div class="chips" id="rankDays" role="group" aria-label="בחירת יום"></div>
+<div class="picker">
+<label><span>אזור</span><select id="rankRegion"></select></label>
+<label><span>סשן</span><select id="rankSession"><option value="best">הטוב ביותר ביום</option><option value="morning">בוקר</option><option value="midday">צהריים</option><option value="evening">ערב</option></select></label>
+</div>
+<ol class="rank-list" id="rankList"></ol>
+</section>
+
+<!-- דגים -->
+<section class="container pane" data-tab="fish" id="tab-fish" hidden aria-labelledby="fishTitle">
+<h1 id="fishTitle" class="sr-only">דגים בחוף</h1>
+<div class="beach-head" id="fishHead"></div>
+<h2 class="sub">בעונה עכשיו</h2>
+<div class="fish-grid" id="fishNow"></div>
+<div class="protected" id="fishProtected"></div>
+<details class="off"><summary>מחוץ לעונה</summary><div class="fish-grid" id="fishOff"></div></details>
+<aside class="law">
+<h2>חוק ובטיחות — בקצרה</h2>
+<ul>
+<li>חכה מהחוף בלי אמצעי עזר — בלי רישיון. רחפן, עפיפון או כלי שיט — עם רישיון. שלל יומי בדיג ספורט: 5 ק״ג או שני דגים גדולים.</li>
+<li>אסור לדוג בנחלים ועד 100 מ׳ מהשפך, בחוף רחצה פעיל, ובשמורות ראש הנקרה–אכזיב, שקמונה ודור–הבונים.</li>
+<li>מוגנים בכל הארץ: כרישים, בטאים, צבי ים והדקר האלכסנדרוני.</li>
+<li>אילת: אין דיג בין הנמל לחוף אלמוג ובשמורות; כל הרכיכות מוגנות (אין אגי); דקרים, שוריים ודגי לטאה מוגנים.</li>
+<li>כנרת: 15.3–15.7 אסור כל דיג באזור בית צידה ובחוף מגדל גינוסר.</li>
+<li>מקור: תקנות הדיג ו<a href="https://static.parks.org.il/wp-content/uploads/2018/10/INFO-GUIDE-FISHING-ISRAEL.pdf" target="_blank" rel="noopener">חוברת המידע לדייג של רט״ג</a>. לפני יציאה — לבדוק עדכונים.</li>
+</ul>
+</aside>
+</section>
+
+<!-- דמויים: ארסנל הז׳רז׳ור -->
+<div class="pane" data-tab="lures" hidden>
 <section class="hero hero-v3" id="hero" aria-labelledby="hero-title">
 <div class="hero-bg" aria-hidden="true"></div>
 <div class="container hero-content">
-<span class="eyebrow"><span class="eyebrow-dot"></span> מדריך שטח לז׳רז׳ור מהחוף</span>
+<span class="eyebrow"><span class="eyebrow-dot"></span> ארסנל הז׳רז׳ור</span>
 <h1 id="hero-title">הדמוי הנכון.<br><em>העבודה הנכונה.</em></h1>
 <p>איזה דמוי לשים בתיק, איך לעבוד איתו ומתי הוא בעונה. כל דמוי עם הדגמה חיה של הזריקה וההחזרה.</p>
 <a class="hero-cta" href="#catalog">לפתוח את הארסנל <span aria-hidden="true">↓</span></a>
@@ -93,9 +177,33 @@
 <div class="sf-actions"><button type="submit" class="sf-send">שליחת הפנייה</button><button type="button" class="sf-copy" id="sfCopy">העתקת הפנייה</button><span class="sf-status" id="sfStatus" role="status"></span></div>
 </form>
 </section>
+</div>
 
-<aside class="editor-note container"><span aria-hidden="true">✦</span><p><strong>שווה לדעת</strong> — תוצאות הדיג משתנות לפי מצב הים, המקום והעונה. דמויים שמסומנים "כל השנה" עובדים לאורך כל השנה, לפי נוכחות הדגים.</p></aside>
+<!-- יומן -->
+<section class="container pane" data-tab="log" hidden aria-labelledby="logTitle">
+<h1 id="logTitle" class="pane-title">יומן תפיסות</h1>
+<p class="hint">נשמר במכשיר הזה. כל תפיסה נשמרת עם תנאי הים באותה שעה, וגם עם המרחק מהחוף — כך היומן שלך יכייל בעתיד את המדד לכל רצועה בחוף.</p>
+<form class="log-form" id="logForm">
+<label><span>תאריך</span><input type="date" id="logDate" required></label>
+<label><span>שעה</span><input type="time" id="logTime" required></label>
+<label><span>חוף</span><select id="logBeach"></select></label>
+<label><span>דג</span><select id="logFish" required></select></label>
+<label><span>דמוי</span><select id="logLure"></select></label>
+<label><span>אורך (ס״מ)</span><input type="number" id="logLen" min="0" max="300" inputmode="numeric"></label>
+<label><span>מרחק מהחוף (מ׳)</span><input type="number" id="logDist" min="0" max="500" inputmode="numeric" placeholder="למשל 60"></label>
+<label class="wide"><span>הערות</span><input type="text" id="logNotes" maxlength="300" placeholder="צבע, קצב, מבנה (שובר, סלע, זרם חוזר)…"></label>
+<div class="log-actions"><button type="submit" class="primary">הוספה ליומן</button><button type="button" id="logExport">ייצוא CSV</button></div>
+</form>
+<ul class="log-list" id="logList"></ul>
+</section>
 </main>
-<footer class="site-footer"><div class="container footer-inner"><span>ארסנל הז׳רז׳ור</span><span>יוצאים לים מוכנים יותר <span aria-hidden="true">↗</span></span></div></footer>
+
+<footer class="site-footer"><div class="container footer-inner">
+<span>מצפן הדייג</span>
+<span>תחזית: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ו-StormGlass · אסטרונומיה: SunCalc · המדד הוא הערכה, לא הבטחה</span>
+</div></footer>
+<script>
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {}));
+</script>
 </body>
 </html>
