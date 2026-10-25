@@ -212,7 +212,13 @@
 <span>תחזית: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ו-StormGlass · אסטרונומיה: SunCalc · המדד הוא הערכה, לא הבטחה</span>
 </div></footer>
 <script>
-if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {}));
+if ("serviceWorker" in navigator) {
+  // a new version takes over at once (skipWaiting + clients.claim) — reload once so the new files are used
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(r => { r.update(); document.addEventListener("visibilitychange", () => { if (!document.hidden) r.update(); }); }).catch(() => {}));
+}
 </script>
 </body>
 </html>

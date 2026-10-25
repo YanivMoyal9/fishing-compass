@@ -1,5 +1,5 @@
 // מצפן הדייג — עבודה גם בלי רשת: קבצי האפליקציה מהמטמון, התחזית מהרשת (ואם אין — מהמטמון).
-const VERSION = "1.2.0";
+const VERSION = "1.2.1";
 const CACHE = `fishing-compass-${VERSION}`;
 const SHELL = ["./", "index.html", "styles.css?v=4", "fixes.css?v=24", "compass.css?v=3", "vendor/suncalc.js", "data/species.js?v=3", "data/beaches.js?v=3",
   "engine.js?v=2", "forecast.js?v=2", "script.js?v=16", "bubbles.js?v=3", "compass.js?v=4", "manifest.webmanifest?v=4"];
