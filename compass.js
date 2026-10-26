@@ -512,9 +512,9 @@ function ownLureHtml(l, sp, m) {
     <button type="button" class="own-photo" data-lure-photo="${l.id}" aria-label="תמונה מוגדלת של ${esc(l.name)}"><img src="assets/lures/studio/${esc(l.image)}?v=1" alt="" loading="lazy" decoding="async"></button>
     <div class="own-body"><header><b><bdi dir="ltr">${esc(l.name)}</bdi></b><span class="own-badge ${inSeason ? "is-in" : "is-off"}">${!l.months ? "כל השנה" : inSeason ? `בעונה ב${MONTHS[m - 1]}` : `לא בעונה ב${MONTHS[m - 1]}`}</span></header>
       <p class="own-sub">${esc(l.subtitle)}${fits ? ` · <b>מתאים ל${esc(sp.name)}</b>` : ""}</p>
-      <ol class="own-steps">${l.methods.map(t => `<li>${esc(t)}</li>`).join("")}</ol>
+      <details class="own-instructions"><summary>אופן עבודה ודגי מטרה</summary><ol class="own-steps">${l.methods.map(t => `<li>${esc(t)}</li>`).join("")}</ol>
       <p class="own-fish">🐟 ${l.fish.map(esc).join(" · ")}</p>
-      ${l.note ? `<p class="own-note">${esc(l.note)}</p>` : ""}</div>
+      ${l.note ? `<p class="own-note">${esc(l.note)}</p>` : ""}</details></div>
     ${demo ? `<details class="own-demo"><summary>▶ הדגמת עבודה</summary>${motionGraphic(l)}</details>` : ""}</article>`;
 }
 function typeCardHtml(c, m, sp, all) {
@@ -530,11 +530,11 @@ function typeCardHtml(c, m, sp, all) {
     <button type="button" class="type-photo kit-open" data-code="${c}" aria-label="תמונה ופרטים על ${esc(LURE_TYPES[c])}">${lureTypeImage(c)}<span class="type-photo-note">הדמיה לדוגמה · לפרטים</span></button>
     <header><h3>${esc(LURE_TYPES[c])}</h3>${sp ? `<span class="rank-badge${rank === 1 ? " is-main" : ""}">${rank === 1 ? "ראשי" : "משלים"} ל${esc(sp.name)}</span>` : `<span class="lg-count">${now.length ? `${now.length} דגים בעונה` : "אין דגים בעונה"}</span>`}${own.length ? `<span class="own-count">${own.length} שלך</span>` : ""}</header>
     <dl class="type-facts"><div><dt>משקל / גודל</dt><dd>${esc(single && sp.size ? sp.size : i.w || "—")}</dd></div><div><dt>צבעים מומלצים</dt><dd>${window.FISH_ART ? FISH_ART.swatches(colors) : ""} ${esc(colors || "—")}</dd></div></dl>
-    <div class="type-retrieve"><span>איך עובדים</span><p>${esc(single && sp.work ? sp.work : i.r || "—")}</p></div><p class="type-location"><b>מתי ואיפה</b>${esc([single ? sp.when : "", i.where].filter(Boolean).join(" · ") || "—")}</p>
-    <div class="type-season"><div><b>עונתיות לאורך השנה</b><span>נבחר: ${MONTHS[m - 1]}</span></div><div class="lg-heat" aria-label="מספר דגי מטרה בעונה בכל חודש">${heat.map((v, k) => `<span class="${k + 1 === m ? "now" : ""}" style="--h:${(v / mx).toFixed(2)}" title="${MONTHS[k]}: ${v} דגים"></span>`).join("")}</div><div class="type-season-labels" aria-hidden="true"><span>ינואר</span><span>דצמבר</span></div></div>
+    <div class="type-retrieve"><span>איך עובדים</span><p>${esc(single && sp.work ? sp.work : i.r || "—")}</p></div><details class="type-extra"><summary>מתי, איפה ועונתיות</summary><p class="type-location"><b>מתי ואיפה</b>${esc([single ? sp.when : "", i.where].filter(Boolean).join(" · ") || "—")}</p>
+    <div class="type-season"><div><b>עונתיות לאורך השנה</b><span>נבחר: ${MONTHS[m - 1]}</span></div><div class="lg-heat" aria-label="מספר דגי מטרה בעונה בכל חודש">${heat.map((v, k) => `<span class="${k + 1 === m ? "now" : ""}" style="--h:${(v / mx).toFixed(2)}" title="${MONTHS[k]}: ${v} דגים"></span>`).join("")}</div><div class="type-season-labels" aria-hidden="true"><span>ינואר</span><span>דצמבר</span></div></div></details>
     <section class="type-targets" aria-label="דגי מטרה"><h4>מה אפשר לתפוס ב${MONTHS[m - 1]}?</h4><div class="lg-fishes">${now.length ? now.slice(0, 5).map(chip).join("") : `<span class="hint">אין דגי מטרה בעונה בחודש הזה.</span>`}</div>
     ${now.length > 5 ? `<details class="type-more-fish"><summary>עוד ${now.length - 5} דגי מטרה</summary><div class="lg-fishes">${now.slice(5).map(chip).join("")}</div></details>` : ""}</section>
-    ${own.length ? `<section class="type-own" aria-label="הדמויים שלך מהסוג הזה"><h4>🧰 הדמויים שלך מהסוג הזה · ${own.length}</h4>${own.map(l => ownLureHtml(l, sp, m)).join("")}</section>` : ""}
+    ${own.length ? `<section class="type-own" aria-label="הדמויים שלך מהסוג הזה"><h4>הדגמים שלך <span>${own.length}</span></h4>${own.map(l => ownLureHtml(l, sp, m)).join("")}</section>` : ""}
   </article>`;
 }
 function openLurePhoto(id) {
@@ -569,7 +569,7 @@ function renderLureGuide() {
       <p class="lg-actions"><button type="button" class="fish-link" data-fish="${sp.id}">📖 כל המידע על ה${esc(sp.name)}</button> · <button type="button" class="fish-link" id="lgWhere">📍 איפה לדוג אותו היום</button> · <button type="button" class="fish-link" id="lgClear">✕ כל הדמויים</button></p></div>`;
   }
   box.innerHTML = `<div class="lg-head"><span class="section-kicker">כל הדמויים במקום אחד</span><h2>הדמויים</h2>
-    <p class="hint">כרטיס לכל סוג דמוי: משקל, צבעים, איך עובדים, באיזה חודש ולאילו דגים. הדמויים שלך מהארסנל מופיעים בתוך הכרטיס של הסוג שלהם. ★ = שיא העונה · מסגרת עבה = דמוי ראשי לדג.</p></div>
+    <p class="hint">בוחרים דג או סוג דמוי, ומוצאים איך לעבוד איתו. הדגמים שלך מופיעים בכל כרטיס.</p></div>
     <div class="lg-filters">
       <div class="now-months lg-months" role="group" aria-label="חודש">${months}</div>
       <div class="lg-row"><label class="spot-pick lg-pick"><span>דג מטרה</span><select id="lgFish"><option value="">כל הדגים</option>${opts}</select></label>
@@ -578,7 +578,7 @@ function renderLureGuide() {
         <label class="lg-mine"><input type="checkbox" id="lgMine" ${lg.mine ? "checked" : ""}> רק סוגים שיש לי בארסנל</label></div>
     </div>
     ${head}
-    <p class="lg-count-line">${codes.length} סוגי דמויים${ownN ? ` · ${ownN} מהארסנל שלך` : ""}</p>
+    <div class="lg-results"><p class="lg-count-line" role="status">${codes.length} סוגי דמויים${ownN ? ` · ${ownN} מהארסנל שלך` : ""}</p><span class="lg-legend">★ שיא העונה · קו תחתון: דמוי ראשי</span></div>
     <div class="lg-types">${codes.map(c => typeCardHtml(c, m, sp, all)).join("") || `<p class="hint">אין דמויים שמתאימים לסינון הזה.</p>`}</div>`;
   box.querySelectorAll("[data-lgm]").forEach(b => b.onclick = () => { lg.month = +b.dataset.lgm; renderLureGuide(); });
   box.querySelectorAll("[data-lgg]").forEach(b => b.onclick = () => { lg.group = b.dataset.lgg; store.set("compass-lg-group", lg.group); renderLureGuide(); });
@@ -591,6 +591,7 @@ function renderLureGuide() {
   box.querySelectorAll("[data-lure-photo]").forEach(b => b.onclick = () => openLurePhoto(+b.dataset.lurePhoto));
   const clr = $("#lgClear"); if (clr) clr.onclick = () => { lg.fish = ""; store.set("compass-lg-fish", ""); renderLureGuide(); };
   const wh = $("#lgWhere"); if (wh) wh.onclick = () => { state.target = sp.id; store.set("compass-target", sp.id); setTab("fish"); const t = $("#targetFish"); if (t) { t.value = sp.id; renderTarget(); t.scrollIntoView({ behavior: "smooth", block: "start" }); } };
+  centerLureMonth();
   renderMethods();
   if (typeof initAnimations === "function") initAnimations(); // the demos of your own lures (script.js)
 }
@@ -640,10 +641,10 @@ function renderMethods() {
     <div class="lg-types">${METHODS.map(me => { const fish = all.filter(s => [...s.lures, ...(s.lures2 || [])].some(c => me.codes.includes(c)))
         .sort((a, c) => ({ pk: 0, in: 1, off: 2 }[lgStatus(a, m)] - { pk: 0, in: 1, off: 2 }[lgStatus(c, m)]));
       return `<article class="lg-type method"><header><h3>${me.icon} ${esc(me.name)}</h3></header><p class="lg-line">${esc(me.what)}</p>
-        <p class="lg-line"><b>ציוד:</b> ${esc(me.gear)}</p><p class="lg-line"><b>מתי:</b> ${esc(me.when)}</p>
+        <details class="method-details"><summary>ציוד, עבודה וטיפים</summary><p class="lg-line"><b>ציוד:</b> ${esc(me.gear)}</p><p class="lg-line"><b>מתי:</b> ${esc(me.when)}</p>
         <ul class="method-tips">${me.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
-        <p class="lg-line"><b>דמויים:</b> ${me.codes.filter(c => LURE_TYPES[c]).map(c => esc(LURE_TYPES[c])).join(" · ")}</p>
-        <p class="lg-fishes">${fish.map(s => `<button type="button" class="lg-chip is-${lgStatus(s, m)}" data-lgf="${s.id}">${esc(s.name)}${lgStatus(s, m) === "pk" ? " ★" : ""}</button>`).join("")}</p></article>`; }).join("")}</div>`;
+        <p class="lg-line"><b>דמויים:</b> ${me.codes.filter(c => LURE_TYPES[c]).map(c => esc(LURE_TYPES[c])).join(" · ")}</p></details>
+        <p class="lg-fishes">${fish.slice(0, 5).map(s => `<button type="button" class="lg-chip is-${lgStatus(s, m)}" data-lgf="${s.id}">${esc(s.name)}${lgStatus(s, m) === "pk" ? " ★" : ""}</button>`).join("")}</p>${fish.length > 5 ? `<details class="method-more"><summary>עוד ${fish.length - 5} דגי מטרה</summary><p class="lg-fishes">${fish.slice(5).map(s => `<button type="button" class="lg-chip is-${lgStatus(s, m)}" data-lgf="${s.id}">${esc(s.name)}${lgStatus(s, m) === "pk" ? " ★" : ""}</button>`).join("")}</p></details>` : ""}</article>`; }).join("")}</div>`;
   box.querySelectorAll("[data-lgf]").forEach(bt => bt.onclick = () => { lg.fish = bt.dataset.lgf; store.set("compass-lg-fish", lg.fish); renderLureGuide(); $("#lureGuide").scrollIntoView({ behavior: "smooth", block: "start" }); });
 }
 
@@ -691,6 +692,24 @@ function setupLog() {
   };
 }
 
+function centerLureMonth() {
+  const strip = document.querySelector("#lureGuide .lg-months"), selected = strip && strip.querySelector(".is-sel");
+  if (!selected || strip.clientWidth === 0 || strip.scrollWidth <= strip.clientWidth) return;
+  strip.scrollLeft += selected.getBoundingClientRect().left - strip.getBoundingClientRect().left - (strip.clientWidth - selected.offsetWidth) / 2;
+}
+function setupLureNavigation() {
+  const links = [...document.querySelectorAll('[data-tab="lures"] .subnav a')];
+  const update = () => {
+    const methods = document.getElementById("methodsGuide"), pane = document.querySelector('[data-tab="lures"]');
+    if (!methods || pane.hidden) return;
+    const active = methods.getBoundingClientRect().top < innerHeight * .45 ? "#methodsGuide" : "#lureGuide";
+    links.forEach(a => { if (a.hash === active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
+  };
+  addEventListener("scroll", update, { passive: true });
+  addEventListener("resize", centerLureMonth);
+  update();
+}
+
 /* ---------- start ---------- */
 async function load(force) {
   $("#loadState").hidden = false; $("#loadState").textContent = "טוען תחזית…";
@@ -704,7 +723,7 @@ async function load(force) {
 }
 function init() {
   $$(".tabbar button").forEach(b => b.onclick = () => setTab(b.dataset.go));
-  fillPicker(); setupLog(); setTab(state.tab);
+  fillPicker(); setupLog(); setTab(state.tab); setupLureNavigation();
   $("#refresh").onclick = () => load(true);
   load(false);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && FC && Date.now() - FC.at > 30 * 60 * 1000) load(true); });
