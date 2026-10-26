@@ -112,3 +112,26 @@ details[open]>summary::after{transform:rotate(-135deg)}
 .nf-note.is-peak{background:#fdebe2!important;color:#8a3a17!important}.nf-note.is-off{background:var(--surface-2)!important;color:var(--muted)!important}
 .finder h2,.catalog h2{font:800 24px/1.2 Heebo,sans-serif!important;letter-spacing:-.01em!important}
 .now-strip p,.now-text,.now-text p{color:var(--ink)!important}.now-text b{color:var(--brand-ink)!important}
+
+/* ---- fish illustrations and visual lure kit ---- */
+.fish-pic svg{display:block;width:100%;height:auto}
+.fish-pic.is-card{margin:-4px -4px 6px;background:linear-gradient(180deg,#e9f3f4,#f7fbfb);border-radius:var(--r-md);padding:4px 18px}
+.fish-pic.is-card svg{max-height:96px;margin:auto}
+.fish-pic.is-hero{background:radial-gradient(ellipse at 50% 60%,#e3f1f2 0%,#f5fafa 70%);border-radius:var(--r-lg);padding:8px 24px;margin:0 0 10px}
+.fish-pic.is-hero svg{max-height:170px;margin:auto}
+.kit h4{margin:2px 0 8px}
+.kit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:8px 0}
+.kit-card{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:10px}
+.kit-card.is-main{background:#fff;border:2px solid var(--brand)}
+.kit-open{flex:none;width:72px;height:44px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:4px;cursor:pointer}
+.kit-open .lure-ico{width:100%;height:100%}
+.kit-body{flex:1;min-width:0}.kit-body header{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.kit-body header span{font-size:12px;font-weight:800;color:var(--brand-ink);background:var(--brand-soft);border-radius:var(--pill);padding:1px 8px}
+.kit-card:not(.is-main) .kit-body header span{background:#eef2f2;color:var(--muted)}
+.kit-body p{margin:4px 0;font-size:14px;line-height:1.4}.kit-body .k{display:inline-block;width:20px}
+.kit-own{color:var(--brand-ink);font-weight:600;font-size:13px!important}
+.swatches{display:inline-flex;gap:3px;vertical-align:middle;margin-inline-end:4px}
+.sw{display:inline-block;width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,.18)}
+.lg-type header{align-items:center}.lg-type header .lure-ico{width:54px;height:27px;flex:none;margin-inline-end:6px}
+.lg-type header h3{flex:1}
+.hero.hero-v3{padding-top:0!important;display:flex!important}.hero-v3 .hero-bg,.hero-v3::before{inset:0!important;height:100%!important}
