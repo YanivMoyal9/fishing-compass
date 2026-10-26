@@ -137,3 +137,32 @@ details[open]>summary::after{transform:rotate(-135deg)}
 .hero.hero-v3{padding-top:0!important;display:flex!important}.hero-v3 .hero-bg,.hero-v3::before{inset:0!important;height:100%!important}
 .fish-pic.is-photo img{display:block;width:100%;height:auto;object-fit:contain}
 .fish-pic.is-card.is-photo img{max-height:110px}.fish-pic.is-hero.is-photo img{max-height:220px}
+
+/* ---- one lures list: filters, type cards with your own lures inside ---- */
+.lg-filters{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;margin:10px 0}
+.lg-row{display:flex;flex-wrap:wrap;gap:10px}.lg-row>label{flex:1;min-width:200px}
+.lg-search{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.lg-search input{font:500 16px Assistant,sans-serif;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+.lg-groups{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lg-group.is-sel{background:var(--brand);border-color:var(--brand);color:#fff}
+.lg-mine{font-size:13px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;margin-inline-start:auto}
+.lg-count-line{color:var(--muted);font-size:14px;margin:6px 0}
+.lure-type-card.is-main{border:2px solid var(--brand)}
+.lure-type-card header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.rank-badge,.own-count{font:800 12px Assistant,sans-serif;border-radius:var(--pill);padding:2px 9px;background:#eef2f2;color:var(--muted)}
+.rank-badge.is-main{background:var(--brand-soft);color:var(--brand-ink)}.own-count{background:#fff1e6;color:#8a4b17}
+.type-own{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px;display:grid;gap:8px}
+.type-own h4{margin:0;font:800 15px Heebo,sans-serif}
+.own-lure{display:grid;grid-template-columns:96px 1fr;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:8px}
+.own-lure.is-fit{border-color:var(--brand);background:#fff}
+.own-photo{border:0;padding:0;background:#fff;border-radius:10px;cursor:zoom-in;overflow:hidden;align-self:start}
+.own-photo img{display:block;width:100%;height:auto}
+.own-body{min-width:0}.own-body header{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;align-items:baseline}
+.own-body b{font-size:15px}.own-badge{font:700 12px Assistant,sans-serif;border-radius:var(--pill);padding:1px 8px}
+.own-badge.is-in{background:#dff3e8;color:#17663f}.own-badge.is-off{background:#eef2f2;color:var(--muted)}
+.own-sub,.own-fish,.own-note{margin:3px 0;font-size:13.5px}.own-note{color:#8a4b17}
+.own-steps{margin:4px 0;padding-inline-start:18px;font-size:13.5px}.own-steps li{margin:2px 0}
+.own-demo summary{font-size:13px;color:var(--brand-ink)}.own-demo svg{max-width:100%;height:auto}
+@media (max-width:520px){.own-lure{grid-template-columns:72px 1fr}}
+.own-demo .motion-graphic{display:block;width:100%!important;max-width:520px;height:auto!important;min-height:120px;margin-top:6px}
+.own-demo{grid-column:1/-1}.own-demo .motion-panel{width:100%!important;max-width:none!important}

@@ -381,6 +381,7 @@ initAnimations();
 function setMonth(v){state.month=v;render()}
 function setFish(v){state.fish=v;render()}
 function reset(){state.type='all';state.fish='all';state.month='all';state.search='';el.search.value='';document.querySelectorAll('[data-type]').forEach(b=>{const active=b.dataset.type==='all';b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',String(active))});render()}
+if(el.grid){ // the catalogue UI (lures are shown by compass.js inside their type cards when it is absent)
 document.querySelector('#typeFilters').addEventListener('click',event=>{const button=event.target.closest('[data-type]');if(!button)return;state.type=button.dataset.type;document.querySelectorAll('[data-type]').forEach(b=>{const active=b===button;b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',String(active))});render()});
 el.search.addEventListener('input',()=>{state.search=el.search.value;render()});
 if(el.now)el.now.addEventListener('click',e=>{if(e.target.closest('#nowButton'))return setMonth(state.month===String(NOW)?'all':String(NOW));const m=e.target.closest('[data-month]');if(m)return setMonth(state.month===m.dataset.month?'all':m.dataset.month);const f=e.target.closest('[data-fish]');if(f)setFish(state.fish===f.dataset.fish?'all':f.dataset.fish)});
@@ -395,6 +396,7 @@ lurePhotoDialog.setAttribute('aria-labelledby','lurePhotoTitle');lurePhotoDialog
 });
 if(lurePhotoDialog)lurePhotoDialog.addEventListener('click',event=>{if(event.target===lurePhotoDialog)lurePhotoDialog.close();});
 render();
+}
 
 /* ---- Suggest a lure / fix form → WhatsApp ---- */
 (function(){
