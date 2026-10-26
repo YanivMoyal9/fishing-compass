@@ -1,3 +1,3 @@
-/* מצפן הדייג — דגים שיש להם תמונה ריאליסטית ב-assets/fish/<id>.webp (נבנה ע״י fish_photos.mjs). לשאר מוצג האיור. */
-window.FISH_PHOTOS = ["barracuda","bluefish","bluerunner","bonito","grouper","needlefish","seabass","seabream","sillago","threadfin","tunny","yellowstripe"];
-window.FISH_PHOTOS_V = "mvp67bei";
+/* תמונות דגים שנוצרו ב-AI, עם רקע שקוף, ב-assets/fish/<id>.webp. */
+window.FISH_PHOTOS = ["bonito","bluefish","seabass","bluerunner","needlefish","tunny","barracuda","yellowstripe","threadfin","grouper","seabream","sillago","squid","cuttlefish","leerfish","meagre","mahi","gilthead","mullet","striped","redmullet","rabbitfish","salema","chub","oblada","bogue","lavnun","gt","emperor","lizardfish","eilatgrouper","barbel","tilapia","catfish","carp","amberjack","pagrus","dentex","pandora","kingfish","whitegrouper","horsemackerel","pompano","sweeper","octopus","annularbream","twobandedbream","zebrabream","lionfish","toadfish","stingray"];
+window.FISH_PHOTOS_V = "transparent-20261026";
