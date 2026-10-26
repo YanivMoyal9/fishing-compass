@@ -206,3 +206,29 @@ details.fish-cal .fc-legend{padding-inline:20px}
   .product-dialog{width:calc(100% - 24px);padding:20px;border-radius:22px}.product-head{gap:12px;margin-bottom:18px}.product-head h2{font-size:21px;overflow-wrap:anywhere}.product-head p{font-size:13px}.product-stage{height:230px;padding:12px;border-radius:16px}.product-caption{font-size:11px;line-height:1.7}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}.lure-card:hover{transform:none}}
+.lure-type-card{overflow:hidden;align-self:start}
+.lure-type-card .type-photo{position:relative;display:flex;align-items:center;justify-content:center;width:calc(100% + 44px);height:190px;margin:-22px -22px 20px;padding:16px 22px 24px;border:0;border-radius:0;background:radial-gradient(ellipse at center,#fff 5%,#eff4ed 100%);cursor:zoom-in}
+.type-photo img{display:block;width:100%;height:100%;object-fit:contain;transition:transform .2s}
+.type-photo:hover img{transform:scale(1.04)}
+.type-photo-note{font-size:11px;color:#526866;font-weight:400;line-height:1.5}
+.type-photo .type-photo-note{position:absolute;bottom:8px;inset-inline-start:18px}
+.lure-type-card>header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.lure-type-card>header h3{margin:0;font-size:23px;line-height:1.3}
+.lure-type-card .lg-count{margin-inline-start:auto;padding:5px 9px;background:#edf4ec;color:#315b48;border-radius:7px;font-size:12px;white-space:nowrap}
+.type-facts{display:grid;grid-template-columns:1fr;gap:12px;margin:0 0 16px}
+.type-facts dt,.type-retrieve>span,.type-location b{display:block;font-size:11px;letter-spacing:.02em;color:#526866;font-weight:600;margin-bottom:4px}
+.type-facts dd{margin:0;font-size:14px;line-height:1.6;color:var(--ink)}
+.type-retrieve{padding:14px 16px;background:#f2f6ef;border-radius:12px;border-inline-start:3px solid #8eb29b}
+.type-retrieve p{margin:0;font-size:15px;line-height:1.65}
+.type-location{font-size:14px;line-height:1.6;margin:14px 0 18px}
+.type-season{border-block:1px solid var(--line);padding:14px 0 10px}
+.type-season>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#526866}
+.type-season>div:first-child b{font-weight:600}.type-season .lg-heat{height:26px;margin:10px 2px 6px}.type-season .lg-heat span{border-radius:3px;height:calc(4px + 20px * var(--h))}.type-season-labels{display:flex;justify-content:space-between;font-size:10px;color:#526866}
+.type-targets{margin-top:16px}.type-targets h4{font-size:13px;margin:0 0 10px}.lure-type-card .lg-fishes{display:flex;flex-wrap:wrap;gap:7px;margin:0}.lure-type-card .lg-chip{border:1px solid #d7e0d6;min-height:36px;background:#f7f9f4;font-size:12px;padding:6px 10px}.lure-type-card .lg-chip.is-pk{background:#e0efe2}.lure-type-card .lg-chip.is-main{border-color:#69917b;box-shadow:inset 0 -2px #69917b}
+.type-more-fish,.type-arsenal{border:0;border-radius:0;background:none;box-shadow:none;margin:10px 0 0;padding:0}
+.type-more-fish>summary,.type-arsenal>summary{padding:8px 0;min-height:36px;font-size:12px;font-weight:600;color:#315b48;cursor:pointer}.type-more-fish[open]>summary{margin-bottom:6px}.type-arsenal{border-top:1px solid var(--line);margin-top:16px;padding-top:6px}.type-arsenal .lg-own{font-size:12px;margin:6px 0}
+.lure-type-dialog-photo{height:180px;padding:8px;background:#f1f5ee;border-radius:16px}.lure-type-dialog-photo img{height:100%;width:100%;object-fit:contain}.lure-dialog .type-photo-note{margin:6px 0 18px}
+.lg-fish>.fish-cal{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px}.lg-fish>.fish-cal span{font-size:10px;text-align:center;background:#edf2ea;padding:6px 0;border-radius:4px}.lg-fish>.fish-cal .pk{background:#176849;color:#fff}.lg-fish>.fish-cal .in{background:#c5e2cd}.lg-fish>.fish-cal .now{outline:2px solid #123;outline-offset:-2px}
+@media(min-width:1100px){.lure-guide .lg-types{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.lure-type-card .type-photo{width:calc(100% + 40px);margin:-20px -20px 18px;height:188px}.lure-type-card>header h3{font-size:24px}.lure-type-card .lg-chip{min-height:38px}.type-facts{grid-template-columns:1fr 1fr;gap:16px}.type-facts dd{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.type-photo img{transition:none}}

@@ -407,10 +407,23 @@ function renderFish() {
   renderTarget();
 }
 
+// Category pictures are illustrative examples, rather than an exact model specification.
+const LURE_TYPE_IMAGES = {
+  JIG: "studio/zeake-r-sardine-20g", MJ: "studio/jigpara-tg-14g",
+  SP: "studio/bassday-spm-90", FP: "studio/bassday-sugapen",
+  MIN: "studio/ima-nabarone", SOFT: "studio/black-minnow-red-head",
+  POP: "types/pop", EGI: "types/egi", BOMB: "types/bomb", SPOON: "types/spoon",
+  SABIKI: "types/sabiki", TAI: "types/tai", SURF: "types/surf", FLOAT: "types/float", LEDGER: "types/ledger"
+};
+function lureTypeImage(code, eager = false) {
+  const file = LURE_TYPE_IMAGES[code];
+  return file ? `<img src="assets/lures/${file}.webp?v=1" alt="הדמיה לדוגמה: ${esc(LURE_TYPES[code] || code)}" loading="${eager ? "eager" : "lazy"}" decoding="async" width="1200" height="600">` : "";
+}
+
 /* ---------- lure card: weights, colours, how to work it; link to the arsenal when it has this type ---------- */
 function lureCard(code) {
   const i = LURE_INFO[code] || {}, dlg = $("#lureDialog");
-  dlg.innerHTML = `<form method="dialog"><h3>${esc(LURE_TYPES[code] || code)}</h3><dl>
+  dlg.innerHTML = `<form method="dialog">${LURE_TYPE_IMAGES[code] ? `<div class="lure-type-dialog-photo">${lureTypeImage(code, true)}</div><p class="type-photo-note">הדמיה להמחשת סוג הדמוי</p>` : ""}<h3>${esc(LURE_TYPES[code] || code)}</h3><dl>
     ${i.w ? `<dt>משקל / גודל</dt><dd>${esc(i.w)}</dd>` : ""}${i.c && i.c !== "—" ? `<dt>צבעים</dt><dd>${esc(i.c)}</dd>` : ""}
     ${i.r ? `<dt>איך עובדים</dt><dd>${esc(i.r)}</dd>` : ""}${i.where ? `<dt>איפה ומתי</dt><dd>${esc(i.where)}</dd>` : ""}</dl>
     <div class="dlg-actions">${LURE_TO_ARSENAL[code] ? `<button type="button" id="toArsenal" class="primary">לדמויים בארסנל</button>` : ""}<button value="close">סגירה</button></div></form>`;
@@ -430,8 +443,7 @@ function lureKitHtml(sp) {
   // the fish's own size / retrieve text applies when it has a single main lure; otherwise each type shows its own
   const mains = codes.filter(([, r]) => r === 1).length;
   return codes.map(([c, rank]) => { const one = rank === 1 && mains === 1, i = LURE_INFO[c] || {}, colors = sp.colors || i.c || "", own = typeof lgArsenalFor === "function" ? lgArsenalFor(c, sp) : [];
-    const sample = own.find(l => c === "MIN" ? l.typeLabel.includes("מינו") : c === "SP" ? l.typeLabel === "פנסיל" : c === "FP" ? l.type === "topwater" : c === "JIG" || c === "MJ" ? l.type === "jig" : c === "SOFT" ? l.type === "soft" : false);
-    return `<article class="kit-card ${rank === 1 ? "is-main" : ""}"><button type="button" class="kit-open lure-link" data-code="${c}" aria-label="פרטים על ${esc(LURE_TYPES[c])}">${sample ? `<img src="assets/lures/studio/${esc(sample.image)}?v=1" alt="" loading="lazy" decoding="async">` : window.FISH_ART ? FISH_ART.lure(c) : ""}</button>
+    return `<article class="kit-card ${rank === 1 ? "is-main" : ""}"><button type="button" class="kit-open lure-link" data-code="${c}" aria-label="פרטים על ${esc(LURE_TYPES[c])}">${lureTypeImage(c)}</button>
       <div class="kit-body"><header><b>${esc(LURE_TYPES[c])}</b><span>${rank === 1 ? "ראשי" : "משלים"}</span></header>
       <p><span class="k">⚖️</span> ${esc(one && sp.size ? sp.size : i.w || "—")}</p>
       <p><span class="k">🎨</span> ${window.FISH_ART ? FISH_ART.swatches(colors) : ""} ${esc(colors || "—")}</p>
@@ -520,12 +532,18 @@ function renderLureGuide() {
       const heat = MONTHS.map((n, i) => fish.filter(x => x.s.m.includes(i + 1)).length), mx = Math.max(1, ...heat);
       return { c, fish, now, heat, mx };
     }).filter(t => t.fish.length).sort((a, b) => b.now.length - a.now.length);
+    const chip = x => `<button type="button" class="lg-chip is-${lgStatus(x.s, m)}${x.rank === 1 ? " is-main" : ""}" data-lgf="${x.s.id}" title="${x.rank === 1 ? "דמוי ראשי" : "דמוי משלים"} ל${esc(x.s.name)}">${esc(x.s.name)}${lgStatus(x.s, m) === "pk" ? " ★" : ""}</button>`;
     body = `<div class="lg-types">${types.map(t => { const i = LURE_INFO[t.c] || {}, own = lgArsenalFor(t.c);
-      return `<article class="lg-type"><header>${window.FISH_ART ? FISH_ART.lure(t.c) : ""}<h3>${esc(LURE_TYPES[t.c])}</h3><span class="lg-count">${t.now.length ? `${t.now.length} דגים בעונה` : "אין דגים בעונה"}</span></header>
-        <div class="lg-heat" aria-label="כמה דגי מטרה בעונה בכל חודש">${t.heat.map((v, k) => `<span class="${k + 1 === m ? "now" : ""}" style="--h:${(v / t.mx).toFixed(2)}" title="${MONTHS[k]}: ${v} דגים"></span>`).join("")}</div>
-        <p class="lg-line"><b>משקל:</b> ${esc(i.w || "—")}</p><p class="lg-line"><b>צבעים:</b> ${esc(i.c || "—")}</p><p class="lg-line"><b>עבודה:</b> ${esc(i.r || "—")}</p><p class="lg-line"><b>מתי ואיפה:</b> ${esc(i.where || "—")}</p>
-        <p class="lg-fishes">${t.now.length ? t.now.map(x => `<button type="button" class="lg-chip is-${lgStatus(x.s, m)}${x.rank === 1 ? " is-main" : ""}" data-lgf="${x.s.id}" title="${x.rank === 1 ? "דמוי ראשי" : "דמוי משלים"} ל${esc(x.s.name)}">${esc(x.s.name)}${lgStatus(x.s, m) === "pk" ? " ★" : ""}</button>`).join("") : `<span class="hint">בחודש הזה אין דג מטרה שהדמוי הזה ראשי או משלים לו.</span>`}</p>
-        ${own.length ? `<p class="lg-own">בארסנל שלך: ${own.map(l => `<a href="#card-${l.id}">${esc(l.name)}</a>`).join(" · ")}</p>` : ""}</article>`; }).join("")}</div>`;
+      return `<article class="lg-type lure-type-card" data-lure-type="${t.c}">
+        <button type="button" class="type-photo kit-open" data-code="${t.c}" aria-label="תמונה ופרטים על ${esc(LURE_TYPES[t.c])}">${lureTypeImage(t.c)}<span class="type-photo-note">הדמיה לדוגמה · לפרטים</span></button>
+        <header><h3>${esc(LURE_TYPES[t.c])}</h3><span class="lg-count">${t.now.length ? `${t.now.length} דגים בעונה` : "אין דגים בעונה"}</span></header>
+        <dl class="type-facts"><div><dt>משקל / גודל</dt><dd>${esc(i.w || "—")}</dd></div><div><dt>צבעים מומלצים</dt><dd>${esc(i.c || "—")}</dd></div></dl>
+        <div class="type-retrieve"><span>איך עובדים</span><p>${esc(i.r || "—")}</p></div><p class="type-location"><b>מתי ואיפה</b>${esc(i.where || "—")}</p>
+        <div class="type-season"><div><b>עונתיות לאורך השנה</b><span>נבחר: ${MONTHS[m - 1]}</span></div><div class="lg-heat" aria-label="מספר דגי מטרה בעונה בכל חודש">${t.heat.map((v, k) => `<span class="${k + 1 === m ? "now" : ""}" style="--h:${(v / t.mx).toFixed(2)}" title="${MONTHS[k]}: ${v} דגים"></span>`).join("")}</div><div class="type-season-labels" aria-hidden="true"><span>ינואר</span><span>דצמבר</span></div></div>
+        <section class="type-targets" aria-label="דגי מטרה"><h4>מה אפשר לתפוס ב${MONTHS[m - 1]}?</h4><div class="lg-fishes">${t.now.length ? t.now.slice(0, 5).map(chip).join("") : `<span class="hint">אין דגי מטרה בעונה בחודש הזה.</span>`}</div>
+        ${t.now.length > 5 ? `<details class="type-more-fish"><summary>עוד ${t.now.length - 5} דגי מטרה</summary><div class="lg-fishes">${t.now.slice(5).map(chip).join("")}</div></details>` : ""}</section>
+        ${own.length ? `<details class="type-arsenal"><summary>בארסנל שלך · ${own.length} דמויים</summary><p class="lg-own">${own.map(l => `<a href="#card-${l.id}">${esc(l.name)}</a>`).join(" · ")}</p></details>` : ""}</article>`; }).join("")}</div>`;
+
   }
   box.innerHTML = `<div class="lg-head"><span class="section-kicker">מהמחקר</span><h2>איזה דמוי לאיזה דג, ומתי</h2>
     <p class="hint">${all.length} דגי מטרה וכל סוגי הדמויים: משקל, צבעים, איך עובדים ובאיזה חודש. ★ = שיא העונה · מסגרת עבה = דמוי ראשי לדג.</p></div>

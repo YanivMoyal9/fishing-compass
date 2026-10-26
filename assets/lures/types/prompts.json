@@ -1,0 +1,42 @@
+{
+  "generator": "Built-in image_gen",
+  "transparent_background": true,
+  "images": [
+    {
+      "code": "POP",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One fishing popper lure, silver blue fish-shaped hard body, large red concave cupped mouth clearly visible on left end, two realistic treble hooks underneath. Horizontal side three-quarter view. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "EGI",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One orange and pink cloth-wrapped shrimp-shaped Japanese egi squid jig, large realistic eye, feather pectoral fins, keel weight under head, two circular crowns of fine barbless needles at tapered tail, no treble hooks. Horizontal side profile. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "BOMB",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One fishing bombarda rig arranged horizontally: translucent elongated oval casting float with central long thin stem, fine visible leader extending to one tiny white soft plastic eel lure with single hook. Complete compact tackle arrangement, no reel or rod. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "SPOON",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One polished silver concave elongated oval fishing spoon lure, subtle hammered metal texture, split ring at nose and one treble hook at tail. Horizontal three-quarter view showing curved spoon geometry. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "SABIKI",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One sabiki fishing rig in a neat horizontal flat lay, a fine main monofilament line with exactly three short spaced dropper branches, each with tiny single hook dressed in pearlescent white feathers, small terminal silver sinker. Real functional fishing tackle. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "TAI",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One orange tai rubber fishing lure: round metallic orange weighted head with two holes, long flowing orange and red silicone skirt strips, two small single assist hooks on red cords. Horizontal product photograph. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "SURF",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One compact surfcasting terminal rig laid horizontally: fine visible fishing leader, barrel swivel, one short hook branch with a single bare bait hook, terminal lead pyramid sinker. No bait, no rod. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "FLOAT",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One complete float fishing terminal rig laid out horizontally: slim red-tipped cream and black float on a visible monofilament line, three tiny split shot weights farther along line, and one small bare single hook at end. No rod. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    },
+    {
+      "code": "LEDGER",
+      "prompt": "Use case: product-mockup. Asset: generic fishing tackle category image for a premium fishing app. One lake ledger fishing terminal rig in a compact horizontal flat lay: visible monofilament line threaded through a dark olive oval sliding sinker, bead and barrel swivel, short leader ending in single bare fishing hook. No rod. Photorealistic studio macro product photography, accurate functional construction and real materials, crisp fine details, soft controlled reflections. Entire item centered within wide 2:1 composition with 12 percent clear margins, isolated on genuinely transparent background. No text, logos, labels, scenery, hands or decorative items. No floor or cast shadow."
+    }
+  ]
+}
