@@ -420,7 +420,7 @@ function lureCard(code) {
 // realistic picture when there is one (assets/fish/<id>.webp, listed in data/fish-photos.js), otherwise our illustration
 const art = (id, cls = "") => {
   const sp = SPECIES.find(s => s.id === id), alt = sp ? esc(sp.name) : "";
-  if ((window.FISH_PHOTOS || []).includes(id)) return `<div class="fish-pic is-photo ${cls}"><img src="assets/fish/${id}.webp?v=1" alt="${alt}" loading="lazy" decoding="async"></div>`;
+  if ((window.FISH_PHOTOS || []).includes(id)) return `<div class="fish-pic is-photo ${cls}"><img src="assets/fish/${id}.webp?v=${window.FISH_PHOTOS_V || 1}" alt="${alt}" loading="lazy" decoding="async"></div>`;
   return window.FISH_ART && FISH_ART.has(id) ? `<div class="fish-pic ${cls}">${FISH_ART.fish(id)}</div>` : "";
 };
 function lureKitHtml(sp) {
