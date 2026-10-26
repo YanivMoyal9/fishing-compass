@@ -1,7 +1,7 @@
 // מצפן הדייג — עבודה גם בלי רשת: קבצי האפליקציה מהמטמון, התחזית מהרשת (ואם אין — מהמטמון).
-const VERSION = "2.2.0";
+const VERSION = "2.2.1";
 const CACHE = `fishing-compass-${VERSION}`;
-const SHELL = ["./", "index.html", "styles.css?v=4", "fixes.css?v=24", "compass.css?v=9", "theme.css?v=6", "vendor/suncalc.js", "data/species.js?v=4", "data/fish-info.js?v=1", "data/beach-features.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=1", "data/beaches.js?v=3",
+const SHELL = ["./", "index.html", "styles.css?v=4", "fixes.css?v=24", "compass.css?v=9", "theme.css?v=6", "vendor/suncalc.js", "data/species.js?v=4", "data/fish-info.js?v=1", "data/beach-features.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=2", "data/beaches.js?v=3",
   "engine.js?v=3", "forecast.js?v=3", "script.js?v=19", "bubbles.js?v=3", "compass.js?v=18", "manifest.webmanifest?v=4", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
