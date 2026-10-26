@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a2a36">
+<meta name="theme-color" content="#f5f4ef">
 <meta name="description" content="מצפן הדייג: איפה, מתי ועם מה לדוג — תחזית ומדד פעילות לכל 92 חופי הדיג בישראל, דגים בעונה, דמויים ויומן תפיסות.">
 <meta property="og:title" content="מצפן הדייג | איפה, מתי ועם מה לדוג">
 <meta property="og:description" content="תחזית ומדד פעילות לכל חופי הדיג בישראל, דגים בעונה ודמויים מתאימים.">
@@ -12,7 +12,7 @@
 <link rel="icon" href="assets/favicon-48.png?v=3" sizes="48x48" type="image/png">
 <link rel="icon" href="assets/favicon-32.png?v=3" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=3">
-<link rel="manifest" href="manifest.webmanifest?v=4">
+<link rel="manifest" href="manifest.webmanifest?v=5">
 <meta name="apple-mobile-web-app-title" content="מצפן הדייג">
 <meta name="application-name" content="מצפן הדייג">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,8 +20,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=9">
+<link rel="stylesheet" href="compass.css?v=10">
 <link rel="stylesheet" href="theme.css?v=7">
+<link rel="stylesheet" href="coastal.css?v=1">
 <script src="vendor/suncalc.js" defer></script>
 <script src="data/species.js?v=4" defer></script>
 <script src="data/fish-info.js?v=1" defer></script>
@@ -31,24 +32,23 @@
 <script src="data/beaches.js?v=3" defer></script>
 <script src="engine.js?v=3" defer></script>
 <script src="forecast.js?v=3" defer></script>
-<script src="script.js?v=19" defer></script>
-<script src="bubbles.js?v=3" defer></script>
-<script src="compass.js?v=19" defer></script>
+<script src="script.js?v=20" defer></script>
+<script src="compass.js?v=20" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
 
 <header class="appbar">
 <div class="container appbar-inner">
-<a class="brand" href="#" aria-label="מצפן הדייג"><span class="brand-mark" aria-hidden="true">🧭</span><span><b>מצפן הדייג</b><small>איפה, מתי ועם מה לדוג</small></span></a>
-<button class="icon-btn" id="refresh" type="button" aria-label="רענון תחזית" title="רענון תחזית">↻</button>
+<a class="brand" href="#" aria-label="מצפן הדייג"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.2"/><path d="m21 8-3 11-7 5 3-11 7-5Z" fill="currentColor"/><path d="m14 13 4 6" stroke="#edf4ed" stroke-width="1.3"/><path d="M16 1v3m0 24v3M1 16h3m24 0h3" stroke="currentColor"/></svg></span><span><b>מצפן הדייג</b><small>איפה, מתי ועם מה לדוג</small></span></a>
+<button class="icon-btn" id="refresh" type="button" aria-label="רענון תחזית" title="רענון תחזית"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6.1a8 8 0 0 1 13.7 5M4.2 12.9a8 8 0 0 0 13.7 5"/></svg></button>
 </div>
 <nav class="tabbar" aria-label="ניווט ראשי">
-<button type="button" data-go="today"><span aria-hidden="true">🌅</span>היום</button>
-<button type="button" data-go="rank"><span aria-hidden="true">🏆</span>חופים</button>
-<button type="button" data-go="fish"><span aria-hidden="true">🐟</span>דגים</button>
-<button type="button" data-go="lures"><span aria-hidden="true">🎣</span>דמויים</button>
-<button type="button" data-go="log"><span aria-hidden="true">📓</span>יומן</button>
+<button type="button" data-go="today"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 17h18M5 21h14M7 17a5 5 0 0 1 10 0M12 3v3M4 9l2 2m14-2-2 2"/></svg></span>היום</button>
+<button type="button" data-go="rank"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>חופים</button>
+<button type="button" data-go="fish"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12c4-7 10-7 15-2l4-3v10l-4-3C13 19 7 19 3 12Z"/><circle cx="8" cy="11" r=".7" fill="currentColor"/><path d="m10 6 4-3 1 4m-5 10 4 4 1-4"/></svg></span>דגים</button>
+<button type="button" data-go="lures"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 19 11-11m-4 12-7-1 1-7M15 8l4-4m-8 0h8v8"/><path d="M15 12v5a4 4 0 0 0 8 0v-2l-2 2"/></svg></span>דמויים</button>
+<button type="button" data-go="log"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M9 3v18M3 7h4m-4 5h4m-4 5h4m6-10h4m-4 4h4"/></svg></span>יומן</button>
 </nav>
 </header>
 
@@ -57,7 +57,10 @@
 
 <!-- היום -->
 <section class="container pane" data-tab="today" aria-labelledby="todayTitle">
-<h1 id="todayTitle" class="sr-only">הסשנים של היום</h1>
+<div class="experience-hero">
+<div class="experience-copy"><span class="overline">הים. התנאים. הרגע שלכם.</span><h1 id="todayTitle">כל יציאה מתחילה<br><em>בכיוון הנכון.</em></h1><p>קוראים את הים, בוחרים את החוף ומגיעים מוכנים. התחזית, הדגים והציוד — במקום אחד.</p><div class="hero-notes"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 8q5-5 10 0t10 0M2 14q5-5 10 0t10 0M2 20q5-5 10 0t10 0"/></svg>תנאי ים ופעילות</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>הזמן הנכון לצאת</span></div></div>
+<div class="coast-frame"><img src="assets/shore-hero-spinning.webp" alt="דייג מטיל חכה מול הים התיכון" width="1400" height="788" fetchpriority="high"><div class="coast-caption"><div><b>קצת יותר ידע. הרבה יותר ים.</b><small>המצפן שלכם לכל יציאה</small></div><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="16" cy="16" r="13"/><path d="m21 9-3 10-7 4 3-10 7-4Z"/></svg></div></div>
+</div>
 <div class="card toolbar">
 <div class="picker">
 <label><span>אזור</span><select id="pickRegion"></select></label>
@@ -66,17 +69,17 @@
 <div class="chips" id="dayChips" role="group" aria-label="בחירת יום"></div>
 </div>
 <div class="beach-head" id="beachHead"></div>
-<nav class="subnav" aria-label="בעמוד הזה"><a href="#sessionsHead">🎣 סשנים</a><a href="#spots">📍 נקודות בחוף</a><a href="#hourlyHead">⏱️ לפי שעה</a><a href="#learnHead">📘 הסברים</a></nav>
-<div class="section-head" id="sessionsHead"><span class="sh-ico" aria-hidden="true">🎣</span><div><h2>הסשנים של היום</h2><p>מדד הפעילות, בטיחות, דגים, דמויים ומה עושים בתנאים</p></div></div>
+<nav class="subnav" aria-label="בעמוד הזה"><a href="#sessionsHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg>סשנים</a><a href="#spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M19 10c0 6-7 11-7 11S5 16 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>נקודות בחוף</a><a href="#hourlyHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 3V2m0 7v4l3 2"/></svg>לפי שעה</a><a href="#learnHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5c-3-2-7-2-10 0v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15"/></svg>הסברים</a></nav>
+<div class="section-head" id="sessionsHead"><span class="sh-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg></span><div><h2>הסשנים של היום</h2><p>מדד הפעילות, בטיחות, דגים, דמויים ומה עושים בתנאים</p></div></div>
 <div class="sessions" id="sessions"></div>
 <section class="card-lite spots" id="spots" hidden></section>
-<div class="section-head" id="hourlyHead"><span class="sh-ico" aria-hidden="true">⏱️</span><div><h2>בטיחות ונוחות לפי שעה</h2><p>כל 24 השעות — ירוק טוב, צהוב סביר, כתום חלש, אדום מסוכן</p></div></div>
+<div class="section-head" id="hourlyHead"><span class="sh-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 3V2m0 7v4l3 2"/></svg></span><div><h2>בטיחות ונוחות לפי שעה</h2><p>כל 24 השעות — ירוק טוב, צהוב סביר, כתום חלש, אדום מסוכן</p></div></div>
 <section class="card-lite">
 <p class="hint">0–100 לפי רוח, משבים, גלים, גשם, ראות, חום ואור — עם קנס לגורם החלש ותקרה של "הגורם הגרוע + 20"; באזהרה רשמית עד 40. ירוק טוב · צהוב סביר · כתום חלש · אדום מסוכן. זה לא מדד הדגים — מתי לדוג נקבע במדד הפעילות שבכרטיסי הסשן.</p>
-<div class="hourly" id="hourly"></div>
+<div class="hourly" id="hourly" tabindex="0" role="region" aria-label="בטיחות ונוחות לפי שעה"></div>
 </section>
 <p class="src-note" id="srcNote"></p>
-<div class="section-head" id="learnHead"><span class="sh-ico" aria-hidden="true">📘</span><div><h2>הסברים</h2><p>איך מחושב המדד ולמה התנאים משנים</p></div></div>
+<div class="section-head" id="learnHead"><span class="sh-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5c-3-2-7-2-10 0v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15"/></svg></span><div><h2>הסברים</h2><p>איך מחושב המדד ולמה התנאים משנים</p></div></div>
 <details class="about">
 <summary>איך מחושב מדד הפעילות?</summary>
 <ul>
@@ -105,7 +108,7 @@
 
 <!-- דירוג חופים -->
 <section class="container pane" data-tab="rank" hidden aria-labelledby="rankTitle">
-<h1 id="rankTitle" class="pane-title">איפה הכי כדאי לדוג?</h1>
+<div class="page-intro"><div><span class="overline">בוחרים כיוון</span><h1 id="rankTitle">החוף הנכון מתחיל כאן.</h1><p>משווים תנאים, מוצאים את החלון הטוב ומחליטים לאן לצאת.</p></div><span class="intro-index" aria-hidden="true">01 /</span></div>
 <div class="chips" id="rankDays" role="group" aria-label="בחירת יום"></div>
 <div class="picker">
 <label><span>אזור</span><select id="rankRegion"></select></label>
@@ -116,8 +119,8 @@
 
 <!-- דגים -->
 <section class="container pane" data-tab="fish" id="tab-fish" hidden aria-labelledby="fishTitle">
-<h1 id="fishTitle" class="pane-title">דגים</h1>
-<nav class="subnav" aria-label="בעמוד הזה"><a href="#targetTitle">🎯 איפה לדוג את…</a><a href="#fishNow">🐟 בעונה עכשיו</a><a href="#fishOffBox">💤 מחוץ לעונה</a><a href="#lawBox">⚖️ חוק ובטיחות</a></nav>
+<div class="page-intro species-intro"><div><span class="overline">מדריך הדגים</span><h1 id="fishTitle">להכיר את הדג.<br>למצוא את הרגע.</h1><p>מי בעונה, איפה הוא פעיל ומה יעבוד היום.</p></div><div class="species-showcase" aria-hidden="true"><img src="assets/fish/seabass.webp?v=transparent-20261026" alt="" width="1200" height="600"><small>Dicentrarchus labrax</small></div></div>
+<nav class="subnav" aria-label="בעמוד הזה"><a href="#targetTitle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>איפה לדוג את…</a><a href="#fishNow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 12c4-7 10-7 15-2l4-3v10l-4-3C13 19 7 19 3 12Z"/><circle cx="8" cy="11" r=".7" fill="currentColor"/></svg>בעונה עכשיו</a><a href="#fishOffBox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M19 15A8 8 0 0 1 9 5a8 8 0 1 0 10 10Z"/></svg>מחוץ לעונה</a><a href="#lawBox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v18M6 21h12M3 7h18M6 7l-3 7h6L6 7Zm12 0-3 7h6l-3-7Z"/></svg>חוק ובטיחות</a></nav>
 <section class="target card-lite" aria-labelledby="targetTitle">
 <h2 id="targetTitle">איפה לדוג את…</h2>
 <p class="hint">בחרו דג: החופים הכי מתאימים היום, לפי עונה, סוג החוף, טמפ׳ המים ומדד הסשן שבשעות שהדג פעיל.</p>
@@ -156,7 +159,7 @@
 </div>
 </section>
 
-<nav class="subnav container" aria-label="בעמוד הזה"><a href="#lureGuide">🎯 דמוי לפי דג</a><a href="#methodsGuide">🎣 שיטות</a><a href="#finder-title">🔎 חיפוש</a><a href="#catalog">🧰 הארסנל שלך</a></nav>
+<nav class="subnav container" aria-label="בעמוד הזה"><a href="#lureGuide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>דמוי לפי דג</a><a href="#methodsGuide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg>שיטות</a><a href="#finder-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg>חיפוש</a><a href="#catalog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 13h18m-9-3v6"/></svg>הארסנל שלך</a></nav>
 <section class="finder container" aria-labelledby="finder-title">
 <div class="finder-heading"><span class="section-kicker">בחירה מהירה בשטח</span><h2 id="finder-title">מה מחפשים היום?</h2></div>
 <div class="now-strip" id="nowStrip" aria-live="polite"></div>
@@ -188,7 +191,7 @@
 
 <!-- יומן -->
 <section class="container pane" data-tab="log" hidden aria-labelledby="logTitle">
-<h1 id="logTitle" class="pane-title">יומן תפיסות</h1>
+<div class="page-intro journal-intro"><div><span class="overline">הסיפור שלכם על המים</span><h1 id="logTitle">כל תפיסה מספרת סיפור.</h1><p>שומרים את הרגע, לומדים את התנאים ומשתפרים ביציאה הבאה.</p></div><span class="intro-index" aria-hidden="true">+ /</span></div>
 <p class="hint">נשמר במכשיר הזה. כל תפיסה נשמרת עם תנאי הים באותה שעה, וגם עם המרחק מהחוף — כך היומן שלך יכייל בעתיד את המדד לכל רצועה בחוף.</p>
 <form class="log-form" id="logForm">
 <label><span>תאריך</span><input type="date" id="logDate" required></label>
@@ -207,6 +210,7 @@
 
 <dialog class="lure-dialog" id="lureDialog"></dialog>
 <dialog class="fish-dialog" id="fishDialog"></dialog>
+<dialog class="product-dialog" id="lurePhotoDialog" aria-label="תצוגה מוגדלת של דמוי"></dialog>
 <footer class="site-footer"><div class="container footer-inner">
 <span>מצפן הדייג</span>
 <span>תחזית: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ו-StormGlass · אסטרונומיה: SunCalc · המדד הוא הערכה, לא הבטחה</span>

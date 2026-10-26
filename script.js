@@ -13,6 +13,7 @@ const lures = [
 ];
 
 window.ARSENAL_LURES=lures;
+const lurePhotoUrl=lure=>`assets/lures/studio/${lure.image}?v=1`;
 const MONTH_NAMES=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const MONTH_SHORT=['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
 const NOW=new Date().getMonth()+1;
@@ -332,7 +333,7 @@ const s=season(lure);
 const p=profiles[lure.id];
 const shareText=`🎣 ${lure.name} — ${lure.subtitle}\n🐟 דגי מטרה: ${lure.fish.join(', ')}\n🔁 שיטת עבודה: ${lure.methods.join(' ')}\n📅 עונה: ${s.share}${lure.note?`\n💡 ${lure.note}`:''}\n${location.href.split('#')[0]}`;
 return `<article class="lure-card" id="card-${lure.id}" aria-labelledby="lure-${lure.id}">
-<div class="card-top"><div class="card-visual"><span class="card-index">#${String(lure.id).padStart(2,'0')}</span><img src="assets/lures/${lure.image}" alt="דמוי ${escapeHTML(lure.name)}" width="500" height="312" loading="lazy" decoding="async"></div>
+<div class="card-top"><div class="card-visual"><span class="card-index">#${String(lure.id).padStart(2,'0')}</span><span class="studio-note">הדמיית מוצר</span><button type="button" class="lure-photo-open" data-lure-photo="${lure.id}" aria-label="הגדלת הדמוי ${escapeHTML(lure.name)}"><img src="${lurePhotoUrl(lure)}" alt="הדמיית דמוי ${escapeHTML(lure.name)}" width="1200" height="600" loading="lazy" decoding="async"><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6m-3-3v6"/></svg></span></button></div>
 <div class="card-identity"><div class="card-badges"><span class="card-type">${lure.typeLabel}</span>${s.badges.map(b=>`<span class="season-badge ${b.className}">${b.text}</span>`).join('')}</div><h3 id="lure-${lure.id}" lang="en">${escapeHTML(lure.name)}</h3><p class="card-subtitle">${lure.subtitle}</p>${monthBar(lure)}<div class="fish-tags">${lure.fish.map(fishTag).join('')}</div>${researchFish(lure)}</div></div>
 ${motionGraphic(lure)}
 <div class="method-block"><span class="method-title">כך עובדים איתו</span><ol class="method-steps">${lure.methods.map((m,i)=>`<li><span class="step-num">${i+1}</span><span>${m}</span></li>`).join('')}</ol></div>
@@ -385,25 +386,15 @@ el.search.addEventListener('input',()=>{state.search=el.search.value;render()});
 if(el.now)el.now.addEventListener('click',e=>{if(e.target.closest('#nowButton'))return setMonth(state.month===String(NOW)?'all':String(NOW));const m=e.target.closest('[data-month]');if(m)return setMonth(state.month===m.dataset.month?'all':m.dataset.month);const f=e.target.closest('[data-fish]');if(f)setFish(state.fish===f.dataset.fish?'all':f.dataset.fish)});
 document.querySelector('#resetFilters').addEventListener('click',reset);
 document.querySelector('#emptyReset').addEventListener('click',reset);
+const lurePhotoDialog=document.querySelector('#lurePhotoDialog');
+el.grid.addEventListener('click',event=>{
+const button=event.target.closest('[data-lure-photo]');if(!button||!lurePhotoDialog)return;
+const lure=lures.find(l=>l.id===Number(button.dataset.lurePhoto));if(!lure)return;
+lurePhotoDialog.innerHTML=`<form method="dialog"><header class="product-head"><div><span class="overline">מבט מקרוב</span><h2 id="lurePhotoTitle"><bdi dir="ltr">${escapeHTML(lure.name)}</bdi></h2><p>${escapeHTML(lure.subtitle)}</p></div><button class="product-close" value="close" aria-label="סגירת תצוגת הדמוי">✕</button></header><div class="product-stage"><img src="${lurePhotoUrl(lure)}" alt="הדמיה מוגדלת של ${escapeHTML(lure.name)}" width="1200" height="600"></div><p class="product-caption">הדמיית מוצר לפי תמונת הדגם</p></form>`;
+lurePhotoDialog.setAttribute('aria-labelledby','lurePhotoTitle');lurePhotoDialog.showModal();
+});
+if(lurePhotoDialog)lurePhotoDialog.addEventListener('click',event=>{if(event.target===lurePhotoDialog)lurePhotoDialog.close();});
 render();
-
-/* ---- Hero parallax: the photo drifts slower than the page and the copy fades as you scroll ---- */
-(function(){
-const hero=document.querySelector('.hero-v3'),bg=hero&&hero.querySelector('.hero-bg'),copy=hero&&hero.querySelector('.hero-content');
-if(!hero||!bg||reduceMotion)return;
-let ticking=false;
-function update(){
-ticking=false;
-const h=hero.offsetHeight,y=Math.min(Math.max(window.scrollY,0),h);
-const k=y/h;
-bg.style.transform=`translate3d(0,${(y*.38).toFixed(1)}px,0) scale(${(1+k*.06).toFixed(3)})`;
-copy.style.transform=`translate3d(0,${(y*.18).toFixed(1)}px,0)`;
-copy.style.opacity=Math.max(0,1-k*1.6).toFixed(3);
-}
-window.addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(update)}},{passive:true});
-update();
-})();
-
 
 /* ---- Suggest a lure / fix form → WhatsApp ---- */
 (function(){

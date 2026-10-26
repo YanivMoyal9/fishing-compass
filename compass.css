@@ -156,9 +156,9 @@ body{background:var(--ground);padding-bottom:84px}
 .fish-dialog{border:0;border-radius:18px;padding:16px 18px;max-width:560px;width:calc(100% - 32px);max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .fish-dialog::backdrop{background:rgba(9,38,49,.45)}
 .fish-dialog h3{margin:0;font:800 22px Heebo,sans-serif}.fish-dialog .latin{margin:2px 0 8px;color:var(--muted);font-size:14px}
-.fish-cal{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin-top:6px}
-.fish-cal span{font-size:11px;text-align:center;padding:4px 0;border-radius:5px;background:#eef2f2;color:var(--muted)}
-.fish-cal .in{background:#bfe3d6;color:var(--ink)}.fish-cal .pk{background:var(--top);color:#fff;font-weight:700}.fish-cal .now{outline:2px solid #123;outline-offset:-2px}
+.fish-dialog .fish-cal{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin-top:6px}
+.fish-dialog .fish-cal span{font-size:11px;text-align:center;padding:4px 0;border-radius:5px;background:#eef2f2;color:var(--muted)}
+.fish-dialog .fish-cal .in{background:#bfe3d6;color:var(--ink)}.fish-dialog .fish-cal .pk{background:var(--top);color:#fff;font-weight:700}.fish-dialog .fish-cal .now{outline:2px solid #123;outline-offset:-2px}
 .fish-facts{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0}.fish-facts div{min-width:90px}.fish-facts dt{font-size:12px;color:var(--muted)}.fish-facts dd{margin:0;font-weight:700;font-size:14px}
 .fish-dialog section{border-top:1px solid var(--line);padding-top:6px;margin-top:8px}
 .fish-dialog h4{margin:2px 0 4px;font:700 16px Heebo,sans-serif}

@@ -356,14 +356,16 @@ function fishRow({ sp, peak, tempNote }, month, water) {
     <div class="cal" aria-label="עונה">${cal}</div>
     ${sp.active && sp.active.length ? `<p class="active">🕑 הכי פעיל: ${sp.active.map(a => ACTIVE_NAMES[a]).join(", ")}${sp.temp ? ` · מים ${sp.temp[0]}–${sp.temp[1]}°` : ""}</p>` : sp.temp ? `<p class="active">מים ${sp.temp[0]}–${sp.temp[1]}°</p>` : ""}
     ${lures ? `<p class="lures">${lures}</p>` : ""}
-    <p>${sp.size ? esc(sp.size) + " · " : ""}${esc(sp.work || "")}${sp.when ? " · " + esc(sp.when) : ""}</p>
-    ${sp.colors ? `<p class="colors">🎨 צבעים: ${esc(sp.colors)}</p>` : ""}
     ${tempNote ? `<p class="warn">🌡️ ${tempNote}</p>` : ""}
     ${sp.min ? `<p class="min">מינימום חוקי: ${sp.min} ס״מ</p>` : ""}
-    ${sp.note ? `<p class="note">${esc(sp.note)}</p>` : ""}
-    ${sp.src ? `<p class="latin">מקור העונה: ${esc(sp.src)}</p>` : ""}
     ${sp.legal && sp.legal[water] ? `<p class="warn">⚖️ ${esc(sp.legal[water])}</p>` : ""}
-    ${window.FISH_INFO && FISH_INFO[sp.id] ? `<button type="button" class="fish-more" data-fish="${sp.id}">📖 הכל על ה${esc(sp.name)}</button>` : ""}
+    <details class="fish-details"><summary>איך לעבוד ומה לבחור</summary>
+      <p>${sp.size ? esc(sp.size) + " · " : ""}${esc(sp.work || "")}${sp.when ? " · " + esc(sp.when) : ""}</p>
+      ${sp.colors ? `<p class="colors">צבעים: ${esc(sp.colors)}</p>` : ""}
+      ${sp.note ? `<p class="note">${esc(sp.note)}</p>` : ""}
+      ${sp.src ? `<p class="latin">מקור העונה: ${esc(sp.src)}</p>` : ""}
+    </details>
+    ${window.FISH_INFO && FISH_INFO[sp.id] ? `<button type="button" class="fish-more" data-fish="${sp.id}">להכיר את ה${esc(sp.name)}</button>` : ""}
   </article>`;
 }
 /* ---------- where to fish for a chosen species ---------- */
@@ -428,7 +430,8 @@ function lureKitHtml(sp) {
   // the fish's own size / retrieve text applies when it has a single main lure; otherwise each type shows its own
   const mains = codes.filter(([, r]) => r === 1).length;
   return codes.map(([c, rank]) => { const one = rank === 1 && mains === 1, i = LURE_INFO[c] || {}, colors = sp.colors || i.c || "", own = typeof lgArsenalFor === "function" ? lgArsenalFor(c, sp) : [];
-    return `<article class="kit-card ${rank === 1 ? "is-main" : ""}"><button type="button" class="kit-open lure-link" data-code="${c}" aria-label="פרטים על ${esc(LURE_TYPES[c])}">${window.FISH_ART ? FISH_ART.lure(c) : ""}</button>
+    const sample = own.find(l => c === "MIN" ? l.typeLabel.includes("מינו") : c === "SP" ? l.typeLabel === "פנסיל" : c === "FP" ? l.type === "topwater" : c === "JIG" || c === "MJ" ? l.type === "jig" : c === "SOFT" ? l.type === "soft" : false);
+    return `<article class="kit-card ${rank === 1 ? "is-main" : ""}"><button type="button" class="kit-open lure-link" data-code="${c}" aria-label="פרטים על ${esc(LURE_TYPES[c])}">${sample ? `<img src="assets/lures/studio/${esc(sample.image)}?v=1" alt="" loading="lazy" decoding="async">` : window.FISH_ART ? FISH_ART.lure(c) : ""}</button>
       <div class="kit-body"><header><b>${esc(LURE_TYPES[c])}</b><span>${rank === 1 ? "ראשי" : "משלים"}</span></header>
       <p><span class="k">⚖️</span> ${esc(one && sp.size ? sp.size : i.w || "—")}</p>
       <p><span class="k">🎨</span> ${window.FISH_ART ? FISH_ART.swatches(colors) : ""} ${esc(colors || "—")}</p>
