@@ -417,7 +417,12 @@ function lureCard(code) {
 }
 
 /* ---------- visual lure kit for a fish: icon, main/extra, weight, colour swatches, retrieve, timing, own lures ---------- */
-const art = (id, cls = "") => window.FISH_ART && FISH_ART.has(id) ? `<div class="fish-pic ${cls}">${FISH_ART.fish(id)}</div>` : "";
+// realistic picture when there is one (assets/fish/<id>.webp, listed in data/fish-photos.js), otherwise our illustration
+const art = (id, cls = "") => {
+  const sp = SPECIES.find(s => s.id === id), alt = sp ? esc(sp.name) : "";
+  if ((window.FISH_PHOTOS || []).includes(id)) return `<div class="fish-pic is-photo ${cls}"><img src="assets/fish/${id}.webp?v=1" alt="${alt}" loading="lazy" decoding="async"></div>`;
+  return window.FISH_ART && FISH_ART.has(id) ? `<div class="fish-pic ${cls}">${FISH_ART.fish(id)}</div>` : "";
+};
 function lureKitHtml(sp) {
   const codes = [...sp.lures.map(c => [c, 1]), ...(sp.lures2 || []).map(c => [c, 2])].filter(([c]) => c !== "BAIT");
   // the fish's own size / retrieve text applies when it has a single main lure; otherwise each type shows its own

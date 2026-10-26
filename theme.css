@@ -135,3 +135,5 @@ details[open]>summary::after{transform:rotate(-135deg)}
 .lg-type header{align-items:center}.lg-type header .lure-ico{width:54px;height:27px;flex:none;margin-inline-end:6px}
 .lg-type header h3{flex:1}
 .hero.hero-v3{padding-top:0!important;display:flex!important}.hero-v3 .hero-bg,.hero-v3::before{inset:0!important;height:100%!important}
+.fish-pic.is-photo img{display:block;width:100%;height:auto;mix-blend-mode:multiply;object-fit:contain}
+.fish-pic.is-card.is-photo img{max-height:110px}.fish-pic.is-hero.is-photo img{max-height:220px}
