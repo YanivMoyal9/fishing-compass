@@ -1,8 +1,8 @@
 // מצפן הדייג — עבודה גם בלי רשת: קבצי האפליקציה מהמטמון, התחזית מהרשת (ואם אין — מהמטמון).
-const VERSION = "2.4.2";
+const VERSION = "3.0.0";
 const CACHE = `fishing-compass-${VERSION}`;
-const SHELL = ["./", "index.html", "styles.css?v=4", "fixes.css?v=24", "compass.css?v=10", "theme.css?v=11", "coastal.css?v=3", "vendor/suncalc.js", "data/species.js?v=4", "data/fish-info.js?v=1", "data/beach-features.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=3",
-  "engine.js?v=3", "forecast.js?v=3", "script.js?v=21", "compass.js?v=25", "manifest.webmanifest?v=5", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3", "assets/shore-hero-spinning.webp", "assets/hero-sunset.webp"];
+const SHELL = ["./", "index.html", "styles.css?v=4", "fixes.css?v=24", "compass.css?v=10", "theme.css?v=11", "coastal.css?v=3", "dashboard.css?v=1", "dashboard.js?v=1", "assets/dashboard-coast.webp", "vendor/suncalc.js", "data/species.js?v=4", "data/fish-info.js?v=1", "data/beach-features.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=3",
+  "engine.js?v=3", "forecast.js?v=3", "script.js?v=21", "compass.js?v=26", "manifest.webmanifest?v=5", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3", "assets/shore-hero-spinning.webp", "assets/hero-sunset.webp"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="compass.css?v=10">
 <link rel="stylesheet" href="theme.css?v=11">
 <link rel="stylesheet" href="coastal.css?v=3">
+<link rel="stylesheet" href="dashboard.css?v=1">
 <script src="vendor/suncalc.js" defer></script>
 <script src="data/species.js?v=4" defer></script>
 <script src="data/fish-info.js?v=1" defer></script>
@@ -33,7 +34,8 @@
 <script src="engine.js?v=3" defer></script>
 <script src="forecast.js?v=3" defer></script>
 <script src="script.js?v=21" defer></script>
-<script src="compass.js?v=25" defer></script>
+<script src="dashboard.js?v=1" defer></script>
+<script src="compass.js?v=26" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -56,11 +58,7 @@
 <p class="load-state container" id="loadState" role="status">טוען תחזית…</p>
 
 <!-- היום -->
-<section class="container pane" data-tab="today" aria-labelledby="todayTitle">
-<div class="experience-hero">
-<div class="experience-copy"><span class="overline">הים. התנאים. הרגע שלכם.</span><h1 id="todayTitle">כל יציאה מתחילה<br><em>בכיוון הנכון.</em></h1><p>קוראים את הים, בוחרים את החוף ומגיעים מוכנים. התחזית, הדגים והציוד — במקום אחד.</p><div class="hero-notes"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 8q5-5 10 0t10 0M2 14q5-5 10 0t10 0M2 20q5-5 10 0t10 0"/></svg>תנאי ים ופעילות</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>הזמן הנכון לצאת</span></div></div>
-<div class="coast-frame"><img src="assets/shore-hero-spinning.webp" alt="דייג מטיל חכה מול הים התיכון" width="1400" height="788" fetchpriority="high"><div class="coast-caption"><div><b>קצת יותר ידע. הרבה יותר ים.</b><small>המצפן שלכם לכל יציאה</small></div><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="16" cy="16" r="13"/><path d="m21 9-3 10-7 4 3-10 7-4Z"/></svg></div></div>
-</div>
+<section class="container pane" data-tab="today" aria-label="תחזית הדיג">
 <div class="card toolbar">
 <div class="picker">
 <label><span>אזור</span><select id="pickRegion"></select></label>
@@ -68,6 +66,9 @@
 </div>
 <div class="chips" id="dayChips" role="group" aria-label="בחירת יום"></div>
 </div>
+<nav class="dashboard-switch" aria-label="תצוגת התחזית"><button type="button" class="is-selected" data-dashboard-nav="forecast" aria-current="page">תחזית <span aria-hidden="true">▥</span></button><button type="button" data-dashboard-nav="map">מפת חופים <span aria-hidden="true">⌖</span></button><button type="button" data-dashboard-nav="lures">דמויים <span aria-hidden="true">↗</span></button></nav>
+<div id="fishingDashboard" aria-busy="true"><div class="dash-empty"><h1>קוראים את הים…</h1><p>מכינים את התחזית לחוף שלכם</p></div></div>
+<details class="dashboard-details"><summary>סשנים, אזהרות ומידע נוסף על החוף</summary>
 <div class="beach-head" id="beachHead"></div>
 <nav class="subnav" aria-label="בעמוד הזה"><a href="#sessionsHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg>סשנים</a><a href="#spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M19 10c0 6-7 11-7 11S5 16 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>נקודות בחוף</a><a href="#hourlyHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 3V2m0 7v4l3 2"/></svg>לפי שעה</a><a href="#learnHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5c-3-2-7-2-10 0v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15"/></svg>הסברים</a></nav>
 <div class="section-head" id="sessionsHead"><span class="sh-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg></span><div><h2>הסשנים של היום</h2><p>מדד הפעילות, בטיחות, דגים, דמויים ומה עושים בתנאים</p></div></div>
@@ -104,6 +105,7 @@
 </ul>
 </details>
 
+</details>
 </section>
 
 <!-- דירוג חופים -->

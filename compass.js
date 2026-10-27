@@ -59,10 +59,12 @@ const beachByName = n => BEACHES.find(b => b.name === n) || BEACHES[0];
 /* ---------- tabs ---------- */
 function setTab(t) {
   state.tab = t; store.set("compass-tab", t);
+  document.body.classList.toggle("dashboard-home", t === "today");
   $$("[data-tab]").forEach(el => el.hidden = el.dataset.tab !== t);
   $$(".tabbar button").forEach(b => { const on = b.dataset.go === t; b.classList.toggle("is-on", on); b.setAttribute("aria-current", on ? "page" : "false"); });
   if (t === "rank") renderRank(); if (t === "fish") renderFish(); if (t === "log") renderLog(); if (t === "lures") renderLureGuide();
   window.scrollTo({ top: 0 });
+  if (t === "today" && window.FISHING_DASHBOARD) requestAnimationFrame(() => FISHING_DASHBOARD.invalidate());
 }
 
 /* ---------- beach picker ---------- */
@@ -232,6 +234,10 @@ function renderToday() {
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
   $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`;
   renderSpots(b);
+  if (window.FISHING_DASHBOARD) {
+    $("#fishingDashboard").setAttribute("aria-busy", "false");
+    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage });
+  }
 }
 
 /* ---------- spots within a beach: 200 m strips ranked per fish (data/zones/<id>.json, built by zones_score.js) ---------- */
@@ -736,11 +742,25 @@ async function load(force) {
     renderToday(); if (state.tab === "rank") renderRank(); if (state.tab === "fish") renderFish();
   } catch (e) {
     $("#loadState").textContent = "לא הצלחנו לטעון תחזית. בדקו חיבור לאינטרנט ונסו שוב.";
+    $("#fishingDashboard").setAttribute("aria-busy", "false");
+    if (window.FISHING_DASHBOARD) FISHING_DASHBOARD.fail();
   }
 }
 function init() {
   $$(".tabbar button").forEach(b => b.onclick = () => setTab(b.dataset.go));
   fillPicker(); setupLog(); setTab(state.tab); setupLureNavigation();
+  $$("[data-dashboard-nav]").forEach(bt => {
+    const target = bt.dataset.dashboardNav;
+    bt.innerHTML = bt.textContent.replace(/[▥⌖↗]/g, "").trim() + (window.FISHING_DASHBOARD ? FISHING_DASHBOARD.icon(target === "forecast" ? "chart" : target === "map" ? "map" : "lure") : "");
+    bt.onclick = () => {
+      if (target === "lures") { setTab("lures"); return; }
+      const dest = document.querySelector(target === "map" ? "#overviewMap" : "#fishingDashboard");
+      if (!dest) { if (target === "map") setTab("rank"); return; }
+      $$("[data-dashboard-nav]").forEach(other => { other.classList.toggle("is-selected", other === bt); if(other === bt) other.setAttribute("aria-current", "location"); else other.removeAttribute("aria-current"); });
+      dest.scrollIntoView({behavior:"smooth",block:"start"});
+    };
+  });
+  const expanded = $(".dashboard-details"); if(expanded) expanded.addEventListener("toggle", () => { if(expanded.open && spotMap) requestAnimationFrame(() => spotMap.invalidateSize()); });
   $("#refresh").onclick = () => load(true);
   load(false);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && FC && Date.now() - FC.at > 30 * 60 * 1000) load(true); });

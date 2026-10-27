@@ -1,0 +1,4 @@
+Generator: built-in image_gen
+Transparent background: false
+
+Use case: photorealistic-natural. Asset: full-width scenic header background for a premium Hebrew coastal fishing forecast app. Wide 2.4:1 landscape photograph of an Israeli Mediterranean rocky shoreline at warm sunrise, sea-level elevated view from shore, gentle turquoise waves and white foam washing onto foreground rocks, golden sun low near left horizon, pale peach sky occupying upper third, sandy coastal cliffs receding on the right. Natural photography, sophisticated calm light, realistic water texture and atmospheric depth. Keep central sky and central horizon relatively quiet for dark text overlay. No people, fishing rods, boats, buildings, lettering, UI or logos. Edge-to-edge opaque photograph.
