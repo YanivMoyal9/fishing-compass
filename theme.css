@@ -166,3 +166,6 @@ details[open]>summary::after{transform:rotate(-135deg)}
 @media (max-width:520px){.own-lure{grid-template-columns:72px 1fr}}
 .own-demo .motion-graphic{display:block;width:100%!important;max-width:520px;height:auto!important;min-height:120px;margin-top:6px}
 .own-demo{grid-column:1/-1}.own-demo .motion-panel{width:100%!important;max-width:none!important}
+
+/* catch log: sea conditions at catch time */
+.log-cond{color:var(--muted);font-size:13px}

@@ -656,6 +656,20 @@ function openArsenal(code) {
 
 /* ---------- catch log (local, with beach and casting distance for future zone calibration) ---------- */
 const LOG_KEY = "compass-catches";
+// a catch outside the loaded forecast (older than a day): fetch that hour from Open-Meteo's past data (up to ~3 months back)
+async function pastCond(id, b, date, T) {
+  const g = GROUPS[b.group]; if (!g || T > Date.now() + 36e5 || Date.now() - T > 90 * 864e5) return;
+  const span = `&start_date=${E.addDays(date, -1)}&end_date=${date}&timezone=GMT`, at = h => h.time.findIndex(t => Math.abs(Date.parse(t + "Z") - T) < 31 * 6e4);
+  try {
+    const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&hourly=pressure_msl,wind_speed_10m${span}`)).json();
+    const m = g.water === "lake" ? null : await (await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${g.mlat}&longitude=${g.mlon}&hourly=wave_height,sea_surface_temperature${span}`)).json().catch(() => null);
+    const k = at(w.hourly), j = m && m.hourly ? at(m.hourly) : -1; if (k < 0) return;
+    const cond = { p: w.hourly.pressure_msl[k], wind: w.hourly.wind_speed_10m[k], wave: j >= 0 && m.hourly.wave_height[j] != null ? m.hourly.wave_height[j] * 100 : null, sst: j >= 0 ? m.hourly.sea_surface_temperature[j] : null, src: "past" };
+    const all = store.get(LOG_KEY, []), c = all.find(x => x.id === id); if (!c || c.cond) return;
+    c.cond = cond; store.set(LOG_KEY, all); if ($("#logList")) renderLog();
+  } catch (e) { /* offline: the catch stays without conditions */ }
+}
+const condTxt = c => c.cond ? ` · <span class="log-cond">${[c.cond.wave != null ? `גל ${Math.round(c.cond.wave)} ס״מ` : "", c.cond.wind != null ? `רוח ${Math.round(c.cond.wind)} קמ״ש` : "", c.cond.p != null ? `${Math.round(c.cond.p)} hPa` : "", c.cond.sst != null ? `מים ${Math.round(c.cond.sst)}°` : ""].filter(Boolean).join(" · ")}</span>` : "";
 function renderLog() {
   const list = store.get(LOG_KEY, []);
   const fishSel = $("#logFish");
@@ -665,23 +679,26 @@ function renderLog() {
   bSel.value = state.beach;
   const lSel = $("#logLure");
   if (!lSel.options.length) lSel.innerHTML = `<option value="">דמוי / פיתיון</option>` + Object.entries(LURE_TYPES).map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
-  $("#logList").innerHTML = list.length ? list.slice().reverse().map(c => `<li><b>${esc(c.fish)}</b> · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
+  $("#logList").innerHTML = list.length ? list.slice().reverse().map(c => `<li><b>${esc(c.fish)}</b> · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${condTxt(c)}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
       <button type="button" class="del" data-id="${c.id}" aria-label="מחיקה">✕</button></li>`).join("") : `<li class="empty">עוד אין תפיסות ביומן.</li>`;
   $$("#logList .del").forEach(btn => btn.onclick = () => { store.set(LOG_KEY, store.get(LOG_KEY, []).filter(c => c.id !== btn.dataset.id)); renderLog(); });
 }
 function setupLog() {
   const now = E.il(Date.now());
   $("#logDate").value = now.key; $("#logTime").value = `${String(now.h).padStart(2, "0")}:${String(now.mi).padStart(2, "0")}`;
+  // catches saved earlier without conditions (offline, or older than the loaded forecast): fill them in once
+  store.get(LOG_KEY, []).filter(c => !c.cond && c.date && c.time).slice(-15).forEach(c => { const b = beachByName(c.beach); if (b) pastCond(c.id, b, c.date, E.ilTime(c.date, +c.time.slice(0, 2) + +c.time.slice(3) / 60)); });
   $("#logForm").onsubmit = e => {
     e.preventDefault();
     const c = { id: String(Date.now()), date: $("#logDate").value, time: $("#logTime").value, beach: $("#logBeach").value, fish: $("#logFish").value, lure: $("#logLure").value,
       len: $("#logLen").value, dist: $("#logDist").value, notes: $("#logNotes").value.trim() };
     if (!c.fish) { $("#logFish").focus(); return; }
     // conditions at catch time, for later calibration of the index
-    const b = beachByName(c.beach), rows = FC && FC.data[b.group];
-    if (rows) { const T = E.ilTime(c.date, +c.time.slice(0, 2) + +c.time.slice(3) / 60), r = rows.find(q => Math.abs(q.T - T) < 31 * 6e4); if (r) c.cond = { p: r.p, wave: r.wave, wind: r.wind, sst: r.sst }; }
+    const b = beachByName(c.beach), rows = FC && FC.data[b.group], T = E.ilTime(c.date, +c.time.slice(0, 2) + +c.time.slice(3) / 60);
+    if (rows) { const r = rows.find(q => Math.abs(q.T - T) < 31 * 6e4); if (r) c.cond = { p: r.p, wave: r.wave, wind: r.wind, sst: r.sst }; }
     const all = store.get(LOG_KEY, []); all.push(c); store.set(LOG_KEY, all);
     $("#logNotes").value = ""; $("#logLen").value = ""; renderLog();
+    if (!c.cond && b) pastCond(c.id, b, c.date, T);
   };
   $("#logExport").onclick = () => {
     const all = store.get(LOG_KEY, []); if (!all.length) return;
