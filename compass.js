@@ -121,13 +121,22 @@ function adviceFor(s, b) {
 
 /* ---------- why here today: food / ambush / comfort (engine.js whereToday, docs/strike-point/18) ---------- */
 const NEED = { food: ["🍽️", "אוכל"], ambush: ["🎯", "מארב"], comfort: ["🌡️", "נוחות"] }, CONF_T = { high: "גבוה", mid: "בינוני", low: "נמוך" };
-function whyHereHtml(s, b, past) {
-  if (state.boat && canBoat(b)) return "";
+function whyHereItems(s, b) {
+  if (!s || s.na || (state.boat && canBoat(b))) return null;
   const rows = (FC && FC.data[b.group]) || [], w = E.whereToday(b, s.x, s.id, rows, (window.BEACH_FEATURES || {})[b.name], +state.day.slice(5, 7));
-  if (!w.pro.length && !w.con.length) return "";
-  const li = (r, against) => `<li${against ? ' class="is-con"' : ""}><span aria-hidden="true">${against ? "✋" : NEED[r.need][0]}</span> ${against ? "<b>נגד:</b> " : ""}${esc(r.text)} <small class="conf conf-${r.conf}" title="${NEED[r.need][1]} · רמת ביטחון במחקר">${CONF_T[r.conf]}</small></li>`;
-  return `<details class="advice why-here" ${past ? "" : "open"}><summary>למה כאן היום</summary><ul>${w.pro.map(r => li(r)).join("")}${w.con.map(r => li(r, true)).join("")}</ul>
+  return w.pro.length || w.con.length ? w : null;
+}
+const whyLi = (r, against) => `<li${against ? ' class="is-con"' : ""}><span aria-hidden="true">${against ? "✋" : NEED[r.need][0]}</span> ${against ? "<b>נגד:</b> " : ""}${esc(r.text)} <small class="conf conf-${r.conf}" title="${NEED[r.need][1]} · רמת ביטחון במחקר">${CONF_T[r.conf]}</small></li>`;
+const whyList = w => `<ul>${w.pro.map(r => whyLi(r)).join("")}${w.con.map(r => whyLi(r, true)).join("")}</ul>`;
+function whyHereHtml(s, b, past) {
+  const w = whyHereItems(s, b); if (!w) return "";
+  return `<details class="advice why-here" ${past ? "" : "open"}><summary>למה כאן היום</summary>${whyList(w)}
     <p class="hint">מה הטורף מחפש: אוכל, מארב ונוחות, מול המבנה של החוף ותנאי היום. מודל ידע ומחקר, עדיין לא מאומת בתפיסות.</p></details>`;
+}
+// short version for the dashboard's recommended-window card
+function whyHereBrief(s, b) {
+  const w = whyHereItems(s, b); if (!w) return "";
+  return `<div class="why-here dash-why"><b>למה כאן היום</b>${whyList(w)}<small class="hint">מודל ידע ומחקר, עדיין לא מאומת בתפיסות</small></div>`;
 }
 
 /* ---------- today ---------- */
@@ -248,7 +257,7 @@ function renderToday() {
   renderSpots(b);
   if (window.FISHING_DASHBOARD) {
     $("#fishingDashboard").setAttribute("aria-busy", "false");
-    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage });
+    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b) });
   }
 }
 
