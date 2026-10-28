@@ -82,14 +82,57 @@ function sessionInputs(rows, key, s) {
   return {
     T0, T1, p0, dpS: p0 != null && pEnd != null ? pEnd - p0 : 0, dp3: p0 != null && p3 != null ? p0 - p3 : 0, dp6: p0 != null && p6 != null ? p0 - p6 : 0,
     wave: avg("wave"), waveMax: max("wave"), wind: avg("wind"), windMax: max("wind"), rain: max("rain"), sst: avg("sst"), air: avg("air"),
+    waveBand: hrs.filter(r => r.wave != null && r.wave >= 35 && r.wave < 75).length, // hours with a 40–70 cm wave (Strike Point bonus, docs/strike-point/16)
     src: hrs.some(r => r.src === "sg") ? "sg" : "om"
   };
 }
 
-/* ---------- activity index (sea) ----------
+/* ---------- activity index (sea), v2 — recalibrated 28/10/2026 ----------
+   Same factors as v1 plus the decoded wave band; points fitted on 2,040 Strike Point VIP session scores (26/10–2/11, all sea regions)
+   against the app's own Open-Meteo inputs, ridge-regularised (docs/strike-point/15 §5). On unseen dates: MAE 11.5 vs 16.6 for v1.
+   v1 is kept below (seaIndexV1); set ENGINE.SEA_VERSION = 1 to switch back. */
+const SEA_W = { base: 57.2,
+  tideLowAfter: 0.5, tideRising: 2.6, tideAfterHigh: -2.6, tideFalling: -0.5, highIn: 5, lowIn: -4.1, risingAll: -0.7, fallingAll: -0.2,
+  pMid: 1.7, pHigh: -3.9, dp3Drop: 3.2, dp3Fall: 0.5, dp3Rise: 0.1, dpSDrop: 0.4, dpSRise: 0.2,
+  moonRise: 0.7, moonSet: 0.7, transit: -2, morning: -3.3, evening: 2.7, waveBand: 3.4, windStrong: 0.6, eilat: 1.1 };
+function seaIndex(x, s, tides, moon, water) {
+  if (window.ENGINE && window.ENGINE.SEA_VERSION === 1) return seaIndexV1(x, s, tides, moon);
+  const f = []; const add = (pts, label) => { if (pts) f.push({ pts, label }); }, W = SEA_W;
+  const mid = (x.T0 + x.T1) / 2;
+  if (tides.length) {
+    const ph = tidePhase(tides, x.T0);
+    if (ph != null) add(ph < 0.25 ? W.tideLowAfter : ph < 0.5 ? W.tideRising : ph < 0.75 ? W.tideAfterHigh : W.tideFalling,
+      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל");
+    const inside = tides.filter(t => t.T >= x.T0 && t.T <= x.T1), next = tides.find(t => t.T > x.T0);
+    if (inside.some(t => t.type === "high")) add(W.highIn, "שיא גאות בתוך החלון");
+    else if (inside.some(t => t.type === "low")) add(W.lowIn, "שפל בתוך החלון");
+    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה כל החלון" : "המים יורדים כל החלון");
+  }
+  if (x.p0 != null) {
+    const p = x.p0;
+    if (p >= 1005 && p < 1013) add(W.pMid, `לחץ ${Math.round(p)} hPa`); else if (p >= 1016) add(W.pHigh, `לחץ ${Math.round(p)} hPa (גבוה)`);
+    const d = x.dp3;
+    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני");
+    if (x.dpS < -1) add(W.dpSDrop, "הלחץ יורד בתוך הסשן"); else if (x.dpS > 0.3) add(W.dpSRise, "הלחץ עולה בתוך הסשן");
+  }
+  if (moon) {
+    const near = (T, h) => Math.abs(T - mid) <= ((x.T1 - x.T0) / 2 + h * HOUR);
+    if (moon.ev.some(e => e.type === "rise" && near(e.T, 1))) add(W.moonRise, "זריחת ירח בחלון");
+    if (moon.ev.some(e => e.type === "set" && near(e.T, 1))) add(W.moonSet, "שקיעת ירח בחלון");
+    if (moon.transits.some(T => near(T, 0))) add(W.transit, "הירח בשיא הגובה בחלון");
+  }
+  if (s.id === "morning") add(W.morning, "אור ראשון"); else if (s.id === "evening") add(W.evening, "ערב");
+  if (x.waveBand) add(W.waveBand, "גל 40–70 ס״מ — ים פעיל");
+  if (x.windMax != null && x.windMax >= 14) add(W.windStrong, `רוח עד ${Math.round(x.windMax)} קמ״ש`);
+  if (water && water !== "med") add(W.eilat, "מפרץ אילת");
+  const score = W.base + f.reduce((a, b) => a + b.pts, 0);
+  return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)) };
+}
+
+/* ---------- activity index (sea), v1 — kept for comparison and rollback ----------
    Points model: tide phase and state, pressure level and trend, moon events, session time, sea state.
    Weights from our analysis of a week of all coast regions (docs/strike-point/08). Base 52. */
-function seaIndex(x, s, tides, moon) {
+function seaIndexV1(x, s, tides, moon) {
   const f = []; const add = (pts, label) => { if (pts) f.push({ pts, label }); };
   const mid = (x.T0 + x.T1) / 2;
   if (tides.length) {
@@ -253,5 +296,5 @@ function bestHour(rows, key, sessions, safeOf) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
 })();

@@ -26,7 +26,7 @@ function beachDay(b, key, boat) {
   const safeOf = r => E.safety(r, safetyCtx(b, r)).score;
   const sessions = win.sessions.map(s => {
     const x = E.sessionInputs(rows, key, s); if (!x) return { ...s, na: true };
-    const idx = lake ? E.lakeIndex(x, s, moon) : E.seaIndex(x, s, tides, moon);
+    const idx = lake ? E.lakeIndex(x, s, moon) : E.seaIndex(x, s, tides, moon, b.water);
     // safety layer for the session's hours (Cormorant mechanics): average for display, minimum for the danger flag
     const T0 = E.ilTime(key, Math.floor(s.start)), T1 = E.ilTime(key, Math.ceil(s.end));
     const sf = rows.filter(r => r.T >= T0 && r.T < T1).map(safeOf);
