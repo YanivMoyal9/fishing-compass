@@ -252,6 +252,55 @@ function fishFor(beach, month, sst) {
   res.now.sort((a, b) => (b.peak - a.peak) || ((a.tempNote ? 1 : 0) - (b.tempNote ? 1 : 0)));
   return res;
 }
+/* ---------- why here today (docs/strike-point/18, stage 1) ----------
+   What a predator looks for — food, ambush, comfort — matched against this beach's structure tags (data/beach-features.js) and
+   today's conditions. Knowledge rules from docs/strike-point/17 §3, not yet validated on catches; every line carries its confidence.
+   x = sessionInputs, sid = session id, rows = the beach's hourly forecast, f = BEACH_FEATURES entry. → { pro: [...≤3], con: [...≤1] } */
+const CONF = { high: 3, mid: 2, low: 1 };
+function whereToday(b, x, sid, rows, f, month) {
+  const pro = [], con = [], tags = (f && f.tags) || [], has = re => tags.some(t => re.test(t)), lake = b.water === "lake";
+  const struct = tags.filter(t => /סלעים|שובר גלים|מזח/.test(t)).map(t => t.replace(" / ", " ו")), rocks = struct.length > 0;
+  const shelter = has(/מים מוגנים|מפרצון|לגונה|ים שקט/) || ["marina", "port"].includes(b.type), lights = has(/מרינה|נמל|מזח/) || ["marina", "port"].includes(b.type);
+  const river = has(/שפך נחל|יציאת מים|תעלה/), surf = has(/מתאים לסרף/) || ["sand", "mixed"].includes(b.type), deep = has(/מים עמוקים קרוב/);
+  const add = (list, need, conf, text, k) => list.push({ need, conf, text, k: CONF[conf] * 10 + (k || 0) });
+  const w = x.waveMax, sst = x.sst, lowLight = sid !== "midday";
+  const before = h => rows.filter(r => r.T < x.T0 && r.T >= x.T0 - h * HOUR);
+  const dd = (a, c) => Math.abs(((a - c) % 360 + 540) % 360 - 180);
+  const fromSea = r => f && f.az != null && r.dir != null && dd(r.dir, f.az) <= 60;
+  const mid = rows.find(r => Math.abs(r.T - (x.T0 + x.T1) / 2) < 31 * 6e4) || {};
+  // light: the strongest established factor
+  if (lowLight) add(pro, "ambush", "high", `${sid === "morning" ? "שחר" : "דמדומים"} — באור עמום לטורף יש יתרון ראייה על הפיתיון`, 5);
+  else if (!(w >= 40 && w <= 100)) add(con, "ambush", "high", "אור מלא — הפיתיון רואה את הטורף; לרדת לעומק או לחכות לשקיעה", 2);
+  if (!lake && w != null) {
+    if (w > 100) { if (shelter) add(pro, "comfort", "high", `ים גבוה (${Math.round(w)} ס״מ) — כאן יש מים מוגנים, שם הדגים מתרכזים`, 9);
+      else add(con, "comfort", "high", `ים גבוה (${Math.round(w)} ס״מ) בחוף חשוף — עדיף מרינה או מים מוגנים`, 9); }
+    else if (w >= 40) {
+      if (rocks) add(pro, "ambush", "high", `גל ${Math.round(w)} ס״מ על ${struct.slice(0, 2).join(" ו")} — קו קצף שמסתיר את הטורף`, 8);
+      else if (surf) add(pro, "ambush", "mid", `גל ${Math.round(w)} ס״מ — ים עובד וקצף מעל השרטונים`, 6);
+      if (w >= 50 && surf) add(pro, "ambush", "mid", "זרם חוזר בין השרטונים — לברק מחכה בו למזון שנסחף", 4);
+    } else if (w < 30) {
+      if (deep || rocks) add(pro, "ambush", "mid", `ים צלול — ${deep ? "עומק קרוב לחוף" : "המבנה"} נותן לטורף מסתור`, 3);
+      else if (!lowLight) add(con, "ambush", "mid", "ים צלול באור מלא בחוף רדוד — הטורף נחשף ונרתע", 3);
+    }
+    const prev = before(36).map(r => r.wave).filter(v => v != null);
+    if (prev.length && Math.max(...prev) >= 100 && (w == null || w < 80) && surf) add(pro, "food", "mid", "אחרי סערה — הסרף חשף מזון ועכר את המים: דניס ולברק", 7);
+  }
+  // food pushed onshore by a steady sea breeze; river mouths after rain
+  const onshore = before(24).filter(r => r.wind != null && r.wind >= 12 && fromSea(r)).length;
+  if (!lake && onshore >= 12) add(pro, "food", "low", `רוח מהים ${onshore} שעות לפני החלון — פיתיון נדחף לרדודים`, 5);
+  const mm = before(72).reduce((s, r) => s + (r.mm || 0), 0);
+  if (river && b.water === "med" && mm >= 5) add(pro, "food", "mid", `${Math.round(mm)} מ״מ גשם ב-3 הימים האחרונים — השפך פעיל: לדוג בשולי הכתם העכור`, 8); // Eilat wadis are dry
+  // strong onshore wind: the lee of the structure
+  if (!lake && x.windMax >= 20 && fromSea(mid)) { if (shelter || has(/שובר גלים/)) add(pro, "comfort", "mid", `רוח ${Math.round(x.windMax)} קמ״ש מהים — בצד המוגן של השובר המים רגועים והפיתיון מתרכז`, 6);
+    else add(con, "comfort", "mid", `רוח ${Math.round(x.windMax)} קמ״ש מהים ואין מחסה בחוף`, 6); }
+  if (sid === "evening" && lights) add(pro, "food", "low", "אחרי החשכה — האורות מושכים פלנקטון, ואחריו קלאמרי וברקודה", 2);
+  // water temperature
+  if (has(/מים חמים בחורף/) && ((sst != null && sst <= 20) || [12, 1, 2, 3].includes(month))) add(pro, "comfort", "mid", `מים ${sst != null ? sst.toFixed(0) + "°" : "קרים"} — יציאת המים החמים מרכזת טורפים`, 9);
+  if (sst != null && sst >= 29 && !lowLight) { if (deep) add(pro, "comfort", "mid", `מים ${sst.toFixed(0)}° — העומק הקרוב לחוף קריר יותר`, 3);
+    else add(con, "comfort", "mid", `מים ${sst.toFixed(0)}° באמצע היום — הדגים יורדים לעומק`, 4); }
+  const by = (a, c) => c.k - a.k;
+  return { pro: pro.sort(by).slice(0, 3), con: con.sort(by).slice(0, 1) };
+}
 // lure codes for a water layer, weighted by fish in season (primary 2, secondary 1, peak ×1.5)
 function luresFor(fishNow, layer) {
   const score = {};
@@ -296,5 +345,5 @@ function bestHour(rows, key, sessions, safeOf) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
 })();

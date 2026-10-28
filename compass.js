@@ -119,6 +119,17 @@ function adviceFor(s, b) {
   return out;
 }
 
+/* ---------- why here today: food / ambush / comfort (engine.js whereToday, docs/strike-point/18) ---------- */
+const NEED = { food: ["🍽️", "אוכל"], ambush: ["🎯", "מארב"], comfort: ["🌡️", "נוחות"] }, CONF_T = { high: "גבוה", mid: "בינוני", low: "נמוך" };
+function whyHereHtml(s, b, past) {
+  if (state.boat && canBoat(b)) return "";
+  const rows = (FC && FC.data[b.group]) || [], w = E.whereToday(b, s.x, s.id, rows, (window.BEACH_FEATURES || {})[b.name], +state.day.slice(5, 7));
+  if (!w.pro.length && !w.con.length) return "";
+  const li = (r, against) => `<li${against ? ' class="is-con"' : ""}><span aria-hidden="true">${against ? "✋" : NEED[r.need][0]}</span> ${against ? "<b>נגד:</b> " : ""}${esc(r.text)} <small class="conf conf-${r.conf}" title="${NEED[r.need][1]} · רמת ביטחון במחקר">${CONF_T[r.conf]}</small></li>`;
+  return `<details class="advice why-here" ${past ? "" : "open"}><summary>למה כאן היום</summary><ul>${w.pro.map(r => li(r)).join("")}${w.con.map(r => li(r, true)).join("")}</ul>
+    <p class="hint">מה הטורף מחפש: אוכל, מארב ונוחות, מול המבנה של החוף ותנאי היום. מודל ידע ומחקר, עדיין לא מאומת בתפיסות.</p></details>`;
+}
+
 /* ---------- today ---------- */
 function dayChips(el, active, onPick) {
   const k0 = todayKey();
@@ -142,6 +153,7 @@ function sessionCard(s, b) {
     <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
     ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
+    ${whyHereHtml(s, b, past)}
     ${(() => { const adv = adviceFor(s, b); return adv.length ? `<details class="advice" ${past ? "" : "open"}><summary>מה עושים בתנאים האלה</summary><ul>${adv.map(([i, t]) => `<li><span aria-hidden="true">${i}</span> ${esc(t)}</li>`).join("")}</ul></details>` : ""; })()}
     <dl class="sess-cond">
       ${x.waveMax != null ? `<div><dt>גל</dt><dd>${fmtNum(x.wave)}–${fmtNum(x.waveMax)} ס״מ</dd></div>` : ""}

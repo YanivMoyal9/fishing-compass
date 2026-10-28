@@ -202,5 +202,7 @@ body{background:var(--ground);padding-bottom:84px}
 .advice{margin:8px 0 4px;background:var(--soft);border-radius:12px;padding:6px 10px}
 .advice summary{cursor:pointer;font-weight:700;font-size:14px}
 .advice ul{list-style:none;margin:6px 0 0;padding:0}.advice li{font-size:14px;margin:4px 0;line-height:1.45}
+.why-here .conf{display:inline-block;font:600 11px Assistant,sans-serif;border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-inline-start:4px;color:var(--muted);vertical-align:1px}
+.why-here .conf-high{color:var(--top);border-color:currentColor}.why-here .is-con{color:var(--muted)}.why-here .hint{font-size:12px;margin:6px 0 2px}
 .method h3{font-size:18px}.method-tips{margin:6px 0;padding-inline-start:18px}.method-tips li{font-size:14px;margin:3px 0}
 .why-matters li{margin:6px 0;line-height:1.55}
