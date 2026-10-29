@@ -82,7 +82,9 @@ function sessionInputs(rows, key, s) {
   return {
     T0, T1, p0, dpS: p0 != null && pEnd != null ? pEnd - p0 : 0, dp3: p0 != null && p3 != null ? p0 - p3 : 0, dp6: p0 != null && p6 != null ? p0 - p6 : 0,
     wave: avg("wave"), waveMax: max("wave"), wind: avg("wind"), windMax: max("wind"), rain: max("rain"), sst: avg("sst"), air: avg("air"),
-    waveBand: hrs.filter(r => r.wave != null && r.wave >= 35 && r.wave < 75).length, // hours with a 40–70 cm wave (Strike Point bonus, docs/strike-point/16)
+    // hours with a 40–70 cm wave on the Strike Point scale (docs/strike-point/16). Open-Meteo runs 20–30 cm higher than the site's
+    // StormGlass wave, so the band is tested 20 cm up: 55–95 cm here (calibrated 29/10, docs/strike-point/20 §8; band agreement 69% → 86%)
+    waveBand: hrs.filter(r => r.wave != null && r.wave >= 55 && r.wave < 95).length,
     src: hrs.some(r => r.src === "sg") ? "sg" : "om"
   };
 }
@@ -122,7 +124,7 @@ function seaIndex(x, s, tides, moon, water) {
     if (moon.transits.some(T => near(T, 0))) add(W.transit, "הירח בשיא הגובה בחלון");
   }
   if (s.id === "morning") add(W.morning, "אור ראשון"); else if (s.id === "evening") add(W.evening, "ערב");
-  if (x.waveBand) add(W.waveBand, "גל 40–70 ס״מ — ים פעיל");
+  if (x.waveBand) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל");
   if (x.windMax != null && x.windMax >= 14) add(W.windStrong, `רוח עד ${Math.round(x.windMax)} קמ״ש`);
   if (water && water !== "med") add(W.eilat, "מפרץ אילת");
   const score = W.base + f.reduce((a, b) => a + b.pts, 0);
