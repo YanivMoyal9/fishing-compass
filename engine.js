@@ -300,8 +300,56 @@ function whereToday(b, x, sid, rows, f, month) {
   if (has(/מים חמים בחורף/) && ((sst != null && sst <= 20) || [12, 1, 2, 3].includes(month))) add(pro, "comfort", "mid", `מים ${sst != null ? sst.toFixed(0) + "°" : "קרים"} — יציאת המים החמים מרכזת טורפים`, 9);
   if (sst != null && sst >= 29 && !lowLight) { if (deep) add(pro, "comfort", "mid", `מים ${sst.toFixed(0)}° — העומק הקרוב לחוף קריר יותר`, 3);
     else add(con, "comfort", "mid", `מים ${sst.toFixed(0)}° באמצע היום — הדגים יורדים לעומק`, 4); }
+  // Kinneret (stage 4, rules 12–13): the downwind shore gathers drifting food and mixed water; a strong afternoon westerly pushes the
+  // warm surface layer east and upwells cold, oxygen-poor water on the western shore (Laval et al. 2003)
+  if (lake) {
+    if (x.windMax >= 15 && fromSea(mid)) add(pro, "food", "mid", `רוח ${Math.round(x.windMax)} קמ״ש מהאגם — החוף במורד הרוח: מזון נסחף ומים מעורבבים`, 7);
+    const westShore = f && f.az != null && dd(f.az, 90) <= 45; // the beach faces east = the lake's western shore
+    if (westShore && sid !== "morning" && mid.wind >= 20 && mid.dir != null && dd(mid.dir, 270) <= 45) add(con, "comfort", "mid", `רוח מערבית ${Math.round(mid.wind)} קמ״ש אחה״צ — בחוף המערבי עולים מים קרים ודלי חמצן`, 7);
+  }
+  // Eilat (rule 14): a real 0.6–0.9 m tide (Open-Meteo, not the site's inverted one — docs/strike-point/17 §1); at mid tide the current
+  // along the reef edge and the breakwaters carries food
+  if (b.water === "eilat" && (rocks || has(/שונית|איים|מצוק/) || b.type === "reef")) {
+    const ph = tidePhase(tideExtremes(rows), (x.T0 + x.T1) / 2);
+    if (ph != null && Math.abs(ph % 0.5 - 0.25) <= 0.1) add(pro, "food", "mid", `אמצע גאות ${ph < 0.5 ? "עולה" : "יורדת"} — הזרם בשולי השונית ובשוברים מביא מזון`, 6);
+  }
   const by = (a, c) => c.k - a.k;
   return { pro: pro.sort(by).slice(0, 3), con: con.sort(by).slice(0, 1) };
+}
+// net "fits here today" points of a whereToday result: confidence points of the pros minus the cons (−3 … +9)
+const whereScore = w => w ? w.pro.reduce((s, r) => s + CONF[r.conf], 0) - w.con.reduce((s, r) => s + CONF[r.conf], 0) : 0;
+/* ---------- where to go today (stage 2): rank beaches of a region for one session ----------
+   cands = [{ b, s (session with score), w (whereToday), safeMin, inSeason }]. "When" is the session's activity index; "where" adds 3 points per
+   confidence point of the rules, so beaches that share a forecast group are separated by their structure. A dangerous session (safety
+   minimum < 30) or a beach where the chosen fish is out of season is never recommended. Returns the top n as levels, not numbers. */
+const GO_LEVEL = t => t >= 75 ? { t: "מצוין", c: "lv-top" } : t >= 60 ? { t: "טוב", c: "lv-good" } : { t: "סביר", c: "lv-ok" };
+function goToday(cands, n = 3) {
+  return cands.filter(c => c.s && !c.s.na && c.inSeason !== false && !(c.safeMin != null && c.safeMin < 30))
+    .map(c => { const ws = whereScore(c.w), total = Math.max(0, Math.min(100, c.s.score + 3 * ws)), pro = (c.w && c.w.pro) || [];
+      // the headline reason is the beach-specific one; the light line (shared by every beach of the session) only when nothing else applies
+      return { ...c, ws, total, lv: GO_LEVEL(total), reason: pro.find(r => !/^(שחר|דמדומים) —/.test(r.text)) || pro[0] || null }; })
+    .sort((a, c) => c.total - a.total || c.s.score - a.s.score).slice(0, n);
+}
+/* ---------- daily adjustment of a beach's 200 m strips (stage 3, rules 1–3, 5, 6, 8) ----------
+   ctx = stripContext(...) once per beach and session; stripAdjust(strip, ctx, sid, fishId) → { d: points to add to the strip's fixed
+   score, why: [short reasons] }. Small, capped points: the fixed ranking (colour, clarity, depth, structures) still leads. */
+function stripContext(b, x, rows, f, month) {
+  const dd = (a, c) => Math.abs(((a - c) % 360 + 540) % 360 - 180);
+  const mid = rows.find(r => Math.abs(r.T - (x.T0 + x.T1) / 2) < 31 * 6e4) || {};
+  const fromSea = f && f.az != null && mid.dir != null && dd(mid.dir, f.az) <= 60;
+  const mm = rows.filter(r => r.T < x.T0 && r.T >= x.T0 - 72 * HOUR).reduce((s, r) => s + (r.mm || 0), 0);
+  return { lake: b.water === "lake", w: x.waveMax, mm, onshore: x.windMax >= 20 && fromSea, cold: (x.sst != null && x.sst <= 20) || [12, 1, 2, 3].includes(month) };
+}
+function stripAdjust(t, c, sid, fishId) {
+  const d = [], near = t.near || {}, le = (k, m) => near[k] != null && near[k] <= m, struct = le("סלע", 120) || le("שובר", 150) || le("מזח", 150);
+  if (c.lake || c.w == null) return { d: 0, why: [] };
+  if (c.w >= 40 && c.w <= 100 && t.band >= 90 && struct) d.push([6, "קצף ליד מבנה"]);
+  if (c.w >= 50 && c.w <= 120 && t.rip) d.push([fishId === "seabass" ? 6 : 4, "זרם חוזר"]);
+  if (c.w < 30) { if (t.z200 >= 6 || struct) d.push([4, `ים צלול — ${t.z200 >= 6 ? "עומק קרוב" : "מבנה"}`]); else if (sid === "midday" && t.z200 < 4) d.push([-4, "ים צלול באור מלא ברדודים"]); }
+  if (c.mm >= 5 && (le("נחל", 300) || le("תעלת מים", 300))) d.push([6, "השפך פעיל אחרי הגשם"]);
+  if (c.onshore) { if (t.shelter) d.push([5, "הצד המוגן מהרוח"]); else if (le("שובר", 200)) d.push([3, "ליד השובר — מחסה מהרוח"]); }
+  if (c.cold && t.warmWinter >= 0.3) d.push([4, "מים חמים יותר"]);
+  return { d: d.reduce((s, r) => s + r[0], 0), why: d.map(r => (r[0] > 0 ? "↑ " : "↓ ") + r[1]) };
 }
 // lure codes for a water layer, weighted by fish in season (primary 2, secondary 1, peak ×1.5)
 function luresFor(fishNow, layer) {
@@ -347,5 +395,5 @@ function bestHour(rows, key, sessions, safeOf) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
 })();

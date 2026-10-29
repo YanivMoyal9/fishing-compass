@@ -121,9 +121,9 @@ function adviceFor(s, b) {
 
 /* ---------- why here today: food / ambush / comfort (engine.js whereToday, docs/strike-point/18) ---------- */
 const NEED = { food: ["🍽️", "אוכל"], ambush: ["🎯", "מארב"], comfort: ["🌡️", "נוחות"] }, CONF_T = { high: "גבוה", mid: "בינוני", low: "נמוך" };
-function whyHereItems(s, b) {
+function whyHereItems(s, b, key = state.day) {
   if (!s || s.na || (state.boat && canBoat(b))) return null;
-  const rows = (FC && FC.data[b.group]) || [], w = E.whereToday(b, s.x, s.id, rows, (window.BEACH_FEATURES || {})[b.name], +state.day.slice(5, 7));
+  const rows = (FC && FC.data[b.group]) || [], w = E.whereToday(b, s.x, s.id, rows, (window.BEACH_FEATURES || {})[b.name], +key.slice(5, 7));
   return w.pro.length || w.con.length ? w : null;
 }
 const whyLi = (r, against) => `<li${against ? ' class="is-con"' : ""}><span aria-hidden="true">${against ? "✋" : NEED[r.need][0]}</span> ${against ? "<b>נגד:</b> " : ""}${esc(r.text)} <small class="conf conf-${r.conf}" title="${NEED[r.need][1]} · רמת ביטחון במחקר">${CONF_T[r.conf]}</small></li>`;
@@ -286,12 +286,19 @@ async function renderSpots(b) {
   let sid = store.get("compass-spot-fish", "");
   if (!z.species[sid]) sid = ids.find(k => k === state.target) || ids[0];
   const sp = z.species[sid], sc = sp[winter ? "scoresWinter" : "scores"];
-  const ranked = z.strips.map((s, i) => ({ s, i, v: sc[i] })).filter(r => r.v != null).sort((p, q) => q.v - p.v);
-  const top = ranked.slice(0, 3), pos = new Map(top.map((r, k) => [r.i, k + 1]));
+  // daily adjustment (docs/strike-point/18 stage 3): the day's best session sets the conditions, and strips that fit them today go up a little
+  const bs = beachDay(b, state.day).sessions.filter(s => !s.na).sort((p, q) => q.score - p.score)[0];
+  const ctx = bs && !(state.boat && canBoat(b)) ? E.stripContext(b, bs.x, (FC && FC.data[b.group]) || [], (window.BEACH_FEATURES || {})[b.name], month) : null;
+  const adj = z.strips.map(s => ctx && s.ok ? E.stripAdjust(s, ctx, bs.id, sid) : { d: 0, why: [] });
+  const vv = z.strips.map((s, i) => sc[i] == null ? null : Math.max(0, Math.min(100, sc[i] + adj[i].d)));
+  const ranked = z.strips.map((s, i) => ({ s, i, v: vv[i], a: adj[i] })).filter(r => r.v != null).sort((p, q) => q.v - p.v);
+  const top = ranked.slice(0, 3), pos = new Map(top.map((r, k) => [r.i, k + 1])), anyUp = adj.some(a => a.d > 0);
   const vs = ranked.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs), t = v => hi > lo ? (v - lo) / (hi - lo) : 0.5; // stretched per fish so differences show
   const fill = v => `hsl(${Math.round(55 - 55 * t(v))} 90% ${Math.round(58 - 10 * t(v))}%)`; // yellow → red = more suitable
+  const upTxt = a => a && a.d ? `${a.d > 0 ? "↑" : "↓"} היום ${a.d > 0 ? "+" : ""}${a.d}: ${a.why.map(w => esc(w.slice(2))).join(" · ")}` : "";
   const card = (r, n) => { const s = r.s, ll = `${s.lat},${s.lon}`;
     return `<li class="spot ${E.level(r.v).c}"><header><span class="rk">${n}</span><b>${esc(s.place)}</b><span class="rv">${r.v}</span></header>
+      ${r.a && r.a.d ? `<p class="up-today${r.a.d < 0 ? " is-down" : ""}">${upTxt(r.a)}</p>` : ""}
       ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}${s.shelter ? `<p class="caution">מים מוגנים מאחורי שובר או במעגן — בדקו שמותר לדוג במקום.</p>` : ""}
       <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>
       <p class="spot-ll">📍 נקודת עמידה (קו המים): <bdi dir="ltr">${fmtLL(s)}</bdi> <button type="button" class="copy-ll" data-ll="${fmtLL(s)}">העתקה</button></p>
@@ -299,17 +306,17 @@ async function renderSpots(b) {
   el.hidden = false;
   if (spotMap) { spotMap.remove(); spotMap = null; }
   el.innerHTML = `<h2>נקודות בחוף</h2>
-    <p class="hint">רצועות של 200 מ׳ לאורך החוף, מדורגות לדג שבחרתם לפי צבע המים, צלילות, עומק, מבנים ומים חמים. הציון יחסי לחוף הזה. הוא מתאר תנאים, לא תפיסות.</p>
+    <p class="hint">רצועות של 200 מ׳ לאורך החוף, מדורגות לדג שבחרתם לפי צבע המים, צלילות, עומק, מבנים ומים חמים. הציון יחסי לחוף הזה. הוא מתאר תנאים, לא תפיסות.${ctx ? ` רצועה שמתאימה לתנאי היום (${esc(bs.name)}: גל ${fmtNum(ctx.w)} ס״מ) מקבלת כמה נקודות ומסומנת ↑ היום.` : ""}</p>
     <label class="spot-pick"><span>דג מטרה</span><select id="spotFish">${ids.map(k => `<option value="${k}" ${k === sid ? "selected" : ""}>${esc(z.species[k].name)}${inSeason.has(k) ? "" : " (לא בעונה)"}</option>`).join("")}</select></label>
     <p class="spot-why"><button type="button" class="fish-link" data-fish="${sid}">📖 על ה${esc(sp.name)}</button> · <b>מה מחפשים:</b> ${esc(sp.why)}${winter ? " · בחורף נלקחת בחשבון פלומת המים החמים." : ""}</p>
     <div class="spot-map-box" id="spotMap" dir="ltr" role="region" aria-label="מפת לוויין של רצועות החוף"><p class="hint">טוען מפה…</p></div>
-    <p class="spot-legend"><span class="lg-bar"></span> צהוב = פחות מתאים, אדום = יותר מתאים · <span class="lg-pin">1</span> שלוש הרצועות המובילות · ${z.strips.some(s => s.ok && s.outside) ? `<span class="lg-out"></span> מחוץ לחוף · ` : ""}<span class="lg-closed"></span> סגור · לחיצה על רצועה מציגה פרטים</p>
+    <p class="spot-legend"><span class="lg-bar"></span> צהוב = פחות מתאים, אדום = יותר מתאים · <span class="lg-pin">1</span> שלוש הרצועות המובילות · ${anyUp ? `<span class="lg-up">↑ היום</span> עלתה היום בגלל התנאים · ` : ""}${z.strips.some(s => s.ok && s.outside) ? `<span class="lg-out"></span> מחוץ לחוף · ` : ""}<span class="lg-closed"></span> סגור · לחיצה על רצועה מציגה פרטים</p>
     <div id="spotPicked"></div>
     <ol class="spot-list">${top.map((r, k) => card(r, k + 1)).join("")}</ol>
     <p class="spot-look">👀 <b>בשטח, חפשו:</b> ${esc(sp.look)}</p>
     <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>נקודת העמידה היא קו המים בתמונות הלוויין (דיוק של כ-30 מ׳; קו המים זז עם הגלים והעונה). הרצועה הצבועה מגיעה עד כ-220 מ׳ לתוך הים. תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p></details>`;
   const pick = i => { const s = z.strips[i];
-    $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, i, v: sc[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; wire(); };
+    $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, i, v: vv[i], a: adj[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; wire(); };
   const wire = () => {
     $$("#spots .copy-ll").forEach(btn => btn.onclick = () => { try { navigator.clipboard.writeText(btn.dataset.ll); btn.textContent = "הועתק ✓"; } catch (e) { /* clipboard blocked */ } });
     $$("#spots .show-on-map").forEach(btn => btn.onclick = () => { const f = spotMap && spotMap._spot; if (!f) return; f.focus(+btn.dataset.i); $("#spotMap").scrollIntoView({ behavior: "smooth", block: "center" }); });
@@ -324,17 +331,17 @@ async function renderSpots(b) {
   const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" });
   L.control.layers({ "לוויין": sat, "מפה": osm }, null, { position: "topleft" }).addTo(map);
   const along = z.az + 90, layers = {}, pts = [];
-  const popup = (s, v, n) => `<div dir="rtl" class="spot-pop"><b>${n ? "#" + n + " · " : ""}${esc(s.place)}</b> · ציון ${v} ל${esc(sp.name)}<br>${s.desc.slice(0, 3).map(esc).join(" · ")}<br><bdi dir="ltr">${fmtLL(s)}</bdi><br><a href="https://waze.com/ul?ll=${s.lat},${s.lon}&navigate=yes" target="_blank" rel="noopener">ניווט ב-Waze</a></div>`;
+  const popup = (s, v, n, i) => `<div dir="rtl" class="spot-pop"><b>${n ? "#" + n + " · " : ""}${esc(s.place)}</b> · ציון ${v} ל${esc(sp.name)}<br>${adj[i].d ? upTxt(adj[i]) + "<br>" : ""}${s.desc.slice(0, 3).map(esc).join(" · ")}<br><bdi dir="ltr">${fmtLL(s)}</bdi><br><a href="https://waze.com/ul?ll=${s.lat},${s.lon}&navigate=yes" target="_blank" rel="noopener">ניווט ב-Waze</a></div>`;
   z.strips.forEach((s, i) => {
     const p0 = s.ok ? [s.lat, s.lon] : s.ref, a = move(p0, along, -100), c = move(p0, along, 100);
     const poly = [a, c, move(c, z.az, 220), move(a, z.az, 220)];
     if (!s.ok) { if (s.closed) L.polygon(poly, { color: "#555", weight: 1, fillColor: "#777", fillOpacity: 0.5, dashArray: "3 3" }).bindTooltip(s.reason).addTo(map); return; }
-    const v = sc[i], n = pos.get(i);
+    const v = vv[i], n = pos.get(i);
     const pg = L.polygon(poly, { color: "#fff", weight: n ? 2.5 : 1, opacity: 0.9, fillColor: fill(v), fillOpacity: 0.5, dashArray: s.outside ? "6 4" : null }).addTo(map);
-    pg.bindPopup(popup(s, v, n)); pg.on("click", () => pick(i));
+    pg.bindPopup(popup(s, v, n, i)); pg.on("click", () => pick(i));
     layers[i] = pg; pts.push([s.lat, s.lon], move(p0, z.az, 220));
     if (n) L.marker([s.lat, s.lon], { icon: L.divIcon({ className: "spot-pin", html: `<b>${n}</b>`, iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, title: `#${n} ${s.place}` })
-      .bindPopup(popup(s, v, n)).on("click", () => pick(i)).addTo(map);
+      .bindPopup(popup(s, v, n, i)).on("click", () => pick(i)).addTo(map);
   });
   map.fitBounds(L.latLngBounds(pts), { padding: [28, 28] });
   map._spot = { focus: i => { const pg = layers[i]; if (!pg) return; map.setView(pg.getBounds().getCenter(), 17); pg.openPopup(); pick(i); } };
@@ -363,12 +370,39 @@ function renderRank() {
     const s = state.rankSession === "best" ? ok.sort((a, c) => c.score - a.score)[0] : ok.find(q => q.id === state.rankSession);
     return { b, s };
   }).filter(x => x.s).sort((a, c) => c.s.score - a.s.score);
+  renderGoToday(rows);
   $("#rankList").innerHTML = rows.map(({ b, s }, i) => {
     const lv = E.level(s.score);
     return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)} <small>${esc(b.region)}</small></span>
       <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
   }).join("");
-  $$("#rankList .rank-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
+  $$("#rankList .rank-row, #goToday .go-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
+}
+/* ---------- where to go today (docs/strike-point/18 stage 2): the three best beaches of the region for a fish and a session ----------
+   "when" = the session's activity index, "where" = whereToday's rules against the beach's structure, "season" = the fish must be in season there.
+   Shown as levels, not numbers; a session whose safety minimum is below 30 is never recommended (engine.js goToday). */
+function renderGoToday(rows) {
+  const el = $("#goToday"); if (!el) return;
+  const month = +state.rankDay.slice(5, 7), sel = $("#rankFish");
+  if (state.rankFish == null) state.rankFish = store.get("compass-rank-fish", state.target || "");
+  const fishes = lgTargets().slice().sort((a, c) => a.name.localeCompare(c.name, "he"));
+  if (!fishes.some(f => f.id === state.rankFish)) state.rankFish = "";
+  sel.innerHTML = `<option value="">כל הדגים בעונה</option>` + fishes.map(f => `<option value="${f.id}" ${f.id === state.rankFish ? "selected" : ""}>${esc(f.name)}</option>`).join("");
+  sel.onchange = e => { state.rankFish = e.target.value; store.set("compass-rank-fish", state.rankFish); renderRank(); };
+  const fish = fishes.find(f => f.id === state.rankFish), safeOk = s => !s.safe || s.safe.min >= 30;
+  // "best session" here = the best SAFE session of the beach (the ranking list below keeps the plain best, with its safety chip)
+  const cands = rows.map(({ b, s }) => {
+    if (state.rankSession === "best" && !safeOk(s)) s = beachDay(b, state.rankDay).sessions.filter(q => !q.na && safeOk(q)).sort((a, c) => c.score - a.score)[0] || s;
+    return { b, s, w: whyHereItems(s, b, state.rankDay), safeMin: s.safe ? s.safe.min : null, inSeason: fish ? E.fishFor(b, month, s.x.sst).now.some(r => r.sp.id === fish.id) : undefined };
+  });
+  const top = E.goToday(cands, 3), where = state.rankRegion === "all" ? "כל האזורים" : state.rankRegion;
+  const allUnsafe = cands.length && cands.every(c => c.safeMin != null && c.safeMin < 30);
+  const sessName = state.rankSession === "best" ? "הסשן הטוב ביום" : { morning: "בוקר", midday: "צהריים", evening: "ערב" }[state.rankSession];
+  el.innerHTML = `<h2>לאן לנסוע היום <small>${esc(where)} · ${sessName}${fish ? " · " + esc(fish.name) : ""}</small></h2>` + (top.length ? `<ol>${top.map((c, i) =>
+    `<li><button type="button" class="go-row ${c.lv.c}" data-b="${esc(c.b.name)}"><span class="rk">${i + 1}</span><span class="gn"><b>${esc(c.b.name)}</b> <small>${esc(c.b.region)} · ${c.s.name} ${E.hm(c.s.start)}</small>
+      ${c.reason ? `<span class="go-reason"><span aria-hidden="true">${NEED[c.reason.need][0]}</span> ${esc(c.reason.text)}</span>` : `<span class="go-reason">תנאים טובים לסשן, בלי יתרון מיוחד במבנה החוף</span>`}</span><span class="go-lv">${c.lv.t}</span></button></li>`).join("")}</ol>
+    <p class="hint">מתי (מדד הפעילות של הסשן) + איפה (המבנה של החוף מול תנאי היום) + עונה. מודל ידע ומחקר, עדיין לא מאומת בתפיסות. הרשימה המלאה למטה.</p>`
+    : `<p class="hint">${allUnsafe ? `${sessName === "הסשן הטוב ביום" ? "כל הסשנים" : "הסשן"} ב${esc(where)} ביום הזה עם בטיחות מתחת ל-30 — אין המלצה. בדקו את שכבת הבטיחות בכרטיס החוף.` : fish ? `אין חוף ב${esc(where)} שבו ה${esc(fish.name)} בעונה ביום הזה.` : "אין סשן זמין ביום הזה באזור."}</p>`);
 }
 
 /* ---------- fish ---------- */

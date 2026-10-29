@@ -206,3 +206,10 @@ body{background:var(--ground);padding-bottom:84px}
 .why-here .conf-high{color:var(--top);border-color:currentColor}.why-here .is-con{color:var(--muted)}.why-here .hint{font-size:12px;margin:6px 0 2px}
 .method h3{font-size:18px}.method-tips{margin:6px 0;padding-inline-start:18px}.method-tips li{font-size:14px;margin:3px 0}
 .why-matters li{margin:6px 0;line-height:1.55}
+/* where to go today (rank tab, docs/strike-point/18 stage 2) and daily strip adjustment (stage 3) */
+.go-today h2 small{font:500 13px Assistant,sans-serif;color:var(--muted);margin-inline-start:6px}
+.go-today ol{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.go-row{width:100%;display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;background:var(--soft);border:0;border-inline-start:6px solid var(--lvc);border-radius:12px;padding:10px 12px;font:500 15px Assistant,sans-serif;color:var(--ink);text-align:start;cursor:pointer}
+.go-row:hover{filter:brightness(.97)}.go-row .gn small{color:var(--muted)}.go-reason{display:block;font-size:13px;color:var(--muted);line-height:1.4;margin-top:2px}
+.go-lv{font:800 16px Heebo,sans-serif;color:var(--lvc);white-space:nowrap}.go-today .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+.up-today{color:var(--top);font-weight:600}.up-today.is-down{color:var(--muted)}.lg-up{color:var(--top);font-weight:800}

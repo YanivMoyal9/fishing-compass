@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=11">
+<link rel="stylesheet" href="compass.css?v=12">
 <link rel="stylesheet" href="theme.css?v=11">
 <link rel="stylesheet" href="coastal.css?v=3">
 <link rel="stylesheet" href="dashboard.css?v=3">
@@ -31,11 +31,11 @@
 <script src="fish-art.js?v=2" defer></script>
 <script src="data/fish-photos.js?v=15" defer></script>
 <script src="data/beaches.js?v=3" defer></script>
-<script src="engine.js?v=6" defer></script>
+<script src="engine.js?v=7" defer></script>
 <script src="forecast.js?v=3" defer></script>
 <script src="script.js?v=21" defer></script>
 <script src="dashboard.js?v=2" defer></script>
-<script src="compass.js?v=29" defer></script>
+<script src="compass.js?v=30" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -115,7 +115,9 @@
 <div class="picker">
 <label><span>אזור</span><select id="rankRegion"></select></label>
 <label><span>סשן</span><select id="rankSession"><option value="best">הטוב ביותר ביום</option><option value="morning">בוקר</option><option value="midday">צהריים</option><option value="evening">ערב</option></select></label>
+<label><span>דג מטרה</span><select id="rankFish"></select></label>
 </div>
+<section class="card-lite go-today" id="goToday" aria-label="לאן לנסוע היום"></section>
 <ol class="rank-list" id="rankList"></ol>
 </section>
 
