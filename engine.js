@@ -92,11 +92,13 @@ function sessionInputs(rows, key, s) {
 /* ---------- activity index (sea), v2 — recalibrated 28/10/2026 ----------
    Same factors as v1 plus the decoded wave band; points fitted on 2,040 Strike Point VIP session scores (26/10–2/11, all sea regions)
    against the app's own Open-Meteo inputs, ridge-regularised (docs/strike-point/15 §5). On unseen dates: MAE 11.5 vs 16.6 for v1.
+   Session constants set to 0 on 29/10 (user approved, docs/strike-point/20 §12): the fitted −3.3 / +2.7 made the evening win over the morning on
+   every day, while the site picks the morning on 26% of beach-days; without them the tide decides and best-session agreement rises 75% → 82%.
    v1 is kept below (seaIndexV1); set ENGINE.SEA_VERSION = 1 to switch back. */
 const SEA_W = { base: 57.2,
   tideLowAfter: 0.5, tideRising: 2.6, tideAfterHigh: -2.6, tideFalling: -0.5, highIn: 5, lowIn: -4.1, risingAll: -0.7, fallingAll: -0.2,
   pMid: 1.7, pHigh: -3.9, dp3Drop: 3.2, dp3Fall: 0.5, dp3Rise: 0.1, dpSDrop: 0.4, dpSRise: 0.2,
-  moonRise: 0.7, moonSet: 0.7, transit: -2, morning: -3.3, evening: 2.7, waveBand: 3.4, windStrong: 0.6, eilat: 1.1 };
+  moonRise: 0.7, moonSet: 0.7, transit: -2, morning: 0, evening: 0, waveBand: 3.4, windStrong: 0.6, eilat: 1.1 };
 function seaIndex(x, s, tides, moon, water) {
   if (window.ENGINE && window.ENGINE.SEA_VERSION === 1) return seaIndexV1(x, s, tides, moon);
   const f = []; const add = (pts, label) => { if (pts) f.push({ pts, label }); }, W = SEA_W;
