@@ -55,6 +55,8 @@ function lakeWaveAt(T) {
 }
 function safetyCtx(b, r) { return { lake: b.water === "lake", light: lightAt(b, r.T), lakeWave: b.water === "lake" ? lakeWaveAt(r.T) : null, warning: zoneWarning(b) }; }
 const beachByName = n => BEACHES.find(b => b.name === n) || BEACHES[0];
+// VIP beaches: the 14 beaches Strike Point locks to its VIP tier (site list, 30/10/2026) — shown as a small tag next to the name.
+const vipTag = b => b.vip ? ` <span class="vip-tag" title="חוף VIP באתר Strike Point">VIP</span>` : "";
 
 /* ---------- tabs ---------- */
 function setTab(t) {
@@ -223,7 +225,7 @@ function beachHeadHtml(b, r, gold, best, boat) {
     b.zone ? `<p>🌡️ ${esc(b.zone)}</p>` : "",
     `<p>🕯️ אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>`
   ].join("");
-  return `<div class="bh-top"><div><h2>${esc(b.name)}</h2><p class="bh-sub">${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</p></div></div>
+  return `<div class="bh-top"><div><h2>${esc(b.name)}${vipTag(b)}</h2><p class="bh-sub">${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</p></div></div>
     ${b.note ? `<p class="bh-note">${esc(b.note)}</p>` : ""}
     ${featuresHtml(b)}
     ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
@@ -373,7 +375,7 @@ function renderRank() {
   renderGoToday(rows);
   $("#rankList").innerHTML = rows.map(({ b, s }, i) => {
     const lv = E.level(s.score);
-    return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)} <small>${esc(b.region)}</small></span>
+    return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)}${vipTag(b)} <small>${esc(b.region)}</small></span>
       <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
   }).join("");
   $$("#rankList .rank-row, #goToday .go-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
@@ -399,7 +401,7 @@ function renderGoToday(rows) {
   const allUnsafe = cands.length && cands.every(c => c.safeMin != null && c.safeMin < 30);
   const sessName = state.rankSession === "best" ? "הסשן הטוב ביום" : { morning: "בוקר", midday: "צהריים", evening: "ערב" }[state.rankSession];
   el.innerHTML = `<h2>לאן לנסוע היום <small>${esc(where)} · ${sessName}${fish ? " · " + esc(fish.name) : ""}</small></h2>` + (top.length ? `<ol>${top.map((c, i) =>
-    `<li><button type="button" class="go-row ${c.lv.c}" data-b="${esc(c.b.name)}"><span class="rk">${i + 1}</span><span class="gn"><b>${esc(c.b.name)}</b> <small>${esc(c.b.region)} · ${c.s.name} ${E.hm(c.s.start)}</small>
+    `<li><button type="button" class="go-row ${c.lv.c}" data-b="${esc(c.b.name)}"><span class="rk">${i + 1}</span><span class="gn"><b>${esc(c.b.name)}</b>${vipTag(c.b)} <small>${esc(c.b.region)} · ${c.s.name} ${E.hm(c.s.start)}</small>
       ${c.reason ? `<span class="go-reason"><span aria-hidden="true">${NEED[c.reason.need][0]}</span> ${esc(c.reason.text)}</span>` : `<span class="go-reason">תנאים טובים לסשן, בלי יתרון מיוחד במבנה החוף</span>`}</span><span class="go-lv">${c.lv.t}</span></button></li>`).join("")}</ol>
     <p class="hint">מתי (מדד הפעילות של הסשן) + איפה (המבנה של החוף מול תנאי היום) + עונה. מודל ידע ומחקר, עדיין לא מאומת בתפיסות. הרשימה המלאה למטה.</p>`
     : `<p class="hint">${allUnsafe ? `${sessName === "הסשן הטוב ביום" ? "כל הסשנים" : "הסשן"} ב${esc(where)} ביום הזה עם בטיחות מתחת ל-30 — אין המלצה. בדקו את שכבת הבטיחות בכרטיס החוף.` : fish ? `אין חוף ב${esc(where)} שבו ה${esc(fish.name)} בעונה ביום הזה.` : "אין סשן זמין ביום הזה באזור."}</p>`);
@@ -447,7 +449,7 @@ function renderTarget() {
     if (!ss) return null;
     return { b, fit, s: ss, rank: Math.round(0.6 * fit.score + 0.4 * ss.score) };
   }).filter(Boolean).filter(r => r.fit.score >= 40).sort((a, c) => c.rank - a.rank).slice(0, 15);
-  out.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" class="rank-row ${E.level(r.rank).c}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)} <small>${esc(r.b.region)} · ${r.fit.why.join(", ")}</small></span>
+  out.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" class="rank-row ${E.level(r.rank).c}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)}${vipTag(r.b)} <small>${esc(r.b.region)} · ${r.fit.why.join(", ")}</small></span>
     <span class="rs">${r.s.name} ${E.hm(r.s.start)}</span><span class="rv">${r.rank}</span>${r.b.legal ? `<span class="rl" title="${esc(r.b.legal)}">⚖️</span>` : ""}</button></li>`).join("") : "<li class='empty'>אין חוף מתאים היום לדג הזה.</li>";
   $$("#targetList .rank-row").forEach(btn => btn.onclick = () => { state.day = key; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
@@ -455,7 +457,7 @@ function renderFish() {
   const b = beachByName(state.beach), month = E.il(Date.now()).mo;
   const sst = FC && FC.data[b.group] ? (FC.data[b.group].find(r => Math.abs(r.T - Date.now()) < 36e5) || {}).sst : null;
   const f = E.fishFor(b, month, sst);
-  $("#fishHead").innerHTML = `<h2>דגים ב${esc(b.name)} <small>${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</small></h2>
+  $("#fishHead").innerHTML = `<h2>דגים ב${esc(b.name)}${vipTag(b)} <small>${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</small></h2>
     ${sst != null ? `<p>טמפ׳ המים עכשיו: <b>${sst.toFixed(1)}°</b></p>` : ""}
     ${b.legal ? `<p class="legal">⚖️ ${esc(b.legal)}</p>` : ""}
     ${b.reports && b.reports.length ? `<p class="reports">דווחו כאן בעבר: ${b.reports.map(esc).join(" · ")}</p>` : ""}`;
