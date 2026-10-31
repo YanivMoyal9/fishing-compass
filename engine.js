@@ -397,5 +397,78 @@ function bestHour(rows, key, sessions, safeOf) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, HOUR };
+/* ---------- hourly activity curve (v3.3, 31/10/2026) ----------
+   The same factors and weights as seaIndex, evaluated for every hour, so the day has a shape between and beyond the three session
+   windows (the site has no night session, so the sessions stay the scored truth; this is the display layer, docs/strike-point/21).
+   Per hour: tide phase and an extreme within ±1.5 h (= "inside the window" of a session), pressure level, 3 h trend before the hour and
+   a centred 3 h change, moon rise/set within 2.5 h and transit within 1.5 h, wave band, strong wind. New here only: light — twilight
+   and day 0, dark −4 (a prior, not fitted: 6 of the 12 gallery catches were after dark), with one hour of grace after dusk / before
+   dawn so the evening session is not penalised. Validation (compass/hourly_curve.js, 4,080 sessions): the window mean sits within 2.5
+   of the session score, and the best session of the day agrees with the site 78% (session model 76%). */
+const HOUR_W = { night: -4, twilight: 0, grace: 1 };
+function hourIndex(rows, i, tides, moon, win, water) {
+  const r = rows[i], T = r.T, mid = T + HOUR / 2, hr = il(T).h + 0.5, f = [], W = SEA_W;
+  const add = (pts, label) => { if (pts) f.push({ pts, label }); };
+  if (tides.length) {
+    const ph = tidePhase(tides, T);
+    if (ph != null) add(ph < 0.25 ? W.tideLowAfter : ph < 0.5 ? W.tideRising : ph < 0.75 ? W.tideAfterHigh : W.tideFalling,
+      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל");
+    const near = tides.filter(t => Math.abs(t.T - mid) <= 1.5 * HOUR), next = tides.find(t => t.T > T);
+    if (near.some(t => t.type === "high")) add(W.highIn, "שיא גאות בשעה הזו");
+    else if (near.some(t => t.type === "low")) add(W.lowIn, "שפל בשעה הזו");
+    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה" : "המים יורדים");
+  }
+  const at = k => rows[i + k] && rows[i + k].p != null ? rows[i + k].p : null, p0 = r.p;
+  if (p0 != null) {
+    if (p0 >= 1005 && p0 < 1013) add(W.pMid, `לחץ ${Math.round(p0)} hPa`); else if (p0 >= 1016) add(W.pHigh, `לחץ ${Math.round(p0)} hPa (גבוה)`);
+    const p3 = at(-3), d = p3 != null ? p0 - p3 : 0;
+    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני");
+    const pa = at(-1), pb = at(2), dS = pa != null && pb != null ? pb - pa : 0;
+    if (dS < -1) add(W.dpSDrop, "הלחץ יורד סביב השעה"); else if (dS > 0.3) add(W.dpSRise, "הלחץ עולה סביב השעה");
+  }
+  if (moon) {
+    const near = (t, h) => Math.abs(t - mid) <= h * HOUR;
+    if (moon.ev.some(e => e.type === "rise" && near(e.T, 2.5))) add(W.moonRise, "זריחת ירח");
+    if (moon.ev.some(e => e.type === "set" && near(e.T, 2.5))) add(W.moonSet, "שקיעת ירח");
+    if (moon.transits.some(t => near(t, 1.5))) add(W.transit, "הירח בשיא הגובה");
+  }
+  if (r.wave != null && r.wave >= 55 && r.wave < 95) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל");
+  if (r.wind != null && r.wind >= 14) add(W.windStrong, `רוח ${Math.round(r.wind)} קמ״ש`);
+  if (water && water !== "med") add(W.eilat, "מפרץ אילת");
+  const light = (hr >= win.dawn - HOUR_W.grace && hr < win.sunrise + 1) || (hr > win.sunset - 1 && hr <= win.dusk + HOUR_W.grace) ? "twilight" : hr >= win.sunrise + 1 && hr <= win.sunset - 1 ? "day" : "night";
+  if (light === "twilight") add(HOUR_W.twilight, "דמדומים"); else if (light === "night") add(HOUR_W.night, "חושך");
+  const score = W.base + f.reduce((a, b) => a + b.pts, 0);
+  return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)), light };
+}
+// the curve of one day: rows = the full hourly forecast (the first hours of the day need the hours before them); lake beaches have no
+// hourly model, so each hour there takes the score of its (nearest) session, minus the dark prior at night
+function hourCurve(rows, key, tides, moon, win, water, sessions) {
+  const T0 = ilTime(key, 0), T1 = ilTime(key, 24), out = [], lake = water === "lake";
+  rows.forEach((r, i) => {
+    if (r.T < T0 || r.T >= T1) return;
+    const p = il(r.T), hr = p.h + 0.5;
+    if (lake) {
+      const ok = (sessions || []).filter(q => !q.na); if (!ok.length) return;
+      const s = ok.find(q => hr >= q.start && hr <= q.end) || ok.slice().sort((a, c) => Math.abs((a.start + a.end) / 2 - hr) - Math.abs((c.start + c.end) / 2 - hr))[0];
+      const night = hr < win.dawn - HOUR_W.grace || hr > win.dusk + HOUR_W.grace;
+      out.push({ T: r.T, h: p.h, row: r, score: Math.max(5, s.score + (night ? HOUR_W.night : 0)), factors: [{ pts: 0, label: `לפי סשן ${s.name}` }].concat(night ? [{ pts: HOUR_W.night, label: "חושך" }] : []), light: night ? "night" : "day" });
+      return;
+    }
+    out.push({ T: r.T, h: p.h, row: r, ...hourIndex(rows, i, tides, moon, win, water) });
+  });
+  return out;
+}
+// the best run of 3 consecutive hours (2 when clearly better) that has not ended yet; the "recommended window" of the day screen
+function bestWindow(curve, fromT) {
+  const c = curve.filter(p => p.T + HOUR > fromT); if (!c.length) return null;
+  let best = null;
+  for (const n of [3, 2]) for (let i = 0; i + n <= c.length; i++) {
+    const seg = c.slice(i, i + n); if (seg.some((p, k) => k && p.T - seg[k - 1].T !== HOUR)) continue;
+    const m = seg.reduce((a, p) => a + p.score, 0) / n;
+    if (!best || m > best.mean + 0.5) best = { start: seg[0].h, end: seg[n - 1].h + 1, mean: m, score: Math.round(m), hours: seg };
+  }
+  return best;
+}
+
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR };
 })();

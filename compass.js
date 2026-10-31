@@ -33,7 +33,7 @@ function beachDay(b, key, boat) {
     const safe = sf.length ? { avg: Math.round(sf.reduce((a, c) => a + c, 0) / sf.length), min: Math.min(...sf) } : null;
     return { ...s, x, ...idx, tip: E.tip(rows, key, s, lake), safe };
   });
-  const res = { win, sessions, safeOf, tides: tides.filter(t => E.il(t.T).key === key), rows: rows.filter(r => E.il(r.T).key === key) };
+  const res = { win, sessions, safeOf, tides: tides.filter(t => E.il(t.T).key === key), rows: rows.filter(r => E.il(r.T).key === key), rowsAll: rows, tidesAll: tides };
   cache.set(ck, res); return res;
 }
 /* ---------- safety context per hour: light, Kinneret wave (IMS official range), relevant official warning ---------- */
