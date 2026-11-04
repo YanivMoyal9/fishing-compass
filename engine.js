@@ -50,26 +50,43 @@ function moonEvents(key0, days, lat, lon) {
   return { ev: uniq, transits };
 }
 
-/* ---------- tide from hourly sea level ---------- */
+/* ---------- tide from hourly sea level ----------
+   v3.4 (4/11/2026): the time of each extreme is refined below the hour with a parabola through the hour before, the extreme hour and the
+   hour after (vertex offset 0.5·(a−c)/(a−2b+c) h, kept within ±0.5 h), as Hooked does (docs/hooked-il/01 §3.2). Before, every high and low
+   sat on a round hour. Measured against the site's own tide times (strike-point-snapshots/compass/tide_interp_check.txt, 949 extremes):
+   MAE 30 → 22 min, within 30 min 56% → 85%. But the activity weights (SEA_W) were fitted on the whole-hour times, and scoring with the
+   exact minutes made the score vs Strike Point slightly worse (MAE 10.45 → 10.76, best session 69% → 66%). So each extreme keeps both:
+   T = the exact time (shown to the user), Tm = the whole hour the models were calibrated on (used by tidePhase, seaIndex, hourIndex). */
+const tm = t => t.Tm != null ? t.Tm : t.T;
 function tideExtremes(rows) {
   const out = [];
   for (let i = 3; i < rows.length - 3; i++) {
     const v = rows[i].sl; if (v == null) continue;
     const near = rows.slice(i - 3, i + 4).map(r => r.sl).filter(x => x != null);
     if (near.length < 7) continue;
-    if (v === Math.max(...near) && v > Math.min(...near) + 0.01) out.push({ T: rows[i].T, type: "high", h: v });
-    else if (v === Math.min(...near) && v < Math.max(...near) - 0.01) out.push({ T: rows[i].T, type: "low", h: v });
+    const type = v === Math.max(...near) && v > Math.min(...near) + 0.01 ? "high" : v === Math.min(...near) && v < Math.max(...near) - 0.01 ? "low" : null;
+    if (!type) continue;
+    const a = rows[i - 1].sl, c = rows[i + 1].sl, den = a - 2 * v + c;
+    const off = den ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / den)) : 0;
+    out.push({ T: Math.round(rows[i].T + off * HOUR), Tm: rows[i].T, type, h: v - 0.25 * (a - c) * off });
   }
   return out.filter((e, i) => !i || e.type !== out[i - 1].type);
 }
 // 0 = low water, 0.5 = high water, linear between extremes
 function tidePhase(tides, T) {
-  const i = tides.findIndex(t => t.T > T); if (i <= 0) return null;
-  const a = tides[i - 1], b = tides[i], f = (T - a.T) / (b.T - a.T);
+  const i = tides.findIndex(t => tm(t) > T); if (i <= 0) return null;
+  const a = tides[i - 1], b = tides[i], f = (T - tm(a)) / (tm(b) - tm(a));
   return a.type === "low" ? f * 0.5 : 0.5 + f * 0.5;
 }
 
 /* ---------- inputs of a session ---------- */
+// ocean current over some hours (v3.4): vector mean of Open-Meteo ocean_current_velocity (km/h) and _direction (° the water flows TO)
+function curMean(hrs) {
+  const v = hrs.filter(r => r.cur != null && r.curDir != null); if (!v.length) return { cur: null, curDir: null };
+  let e = 0, n = 0; for (const r of v) { const a = r.curDir * Math.PI / 180; e += r.cur * Math.sin(a); n += r.cur * Math.cos(a); }
+  e /= v.length; n /= v.length;
+  return { cur: Math.hypot(e, n), curDir: (Math.atan2(e, n) * 180 / Math.PI + 360) % 360 };
+}
 function sessionInputs(rows, key, s) {
   const T0 = ilTime(key, Math.floor(s.start)), T1 = ilTime(key, Math.ceil(s.end));
   const hrs = rows.filter(r => r.T >= T0 && r.T < T1);
@@ -85,6 +102,7 @@ function sessionInputs(rows, key, s) {
     // hours with a 40–70 cm wave on the Strike Point scale (docs/strike-point/16). Open-Meteo runs 20–30 cm higher than the site's
     // StormGlass wave, so the band is tested 20 cm up: 55–95 cm here (calibrated 29/10, docs/strike-point/20 §8; band agreement 69% → 86%)
     waveBand: hrs.filter(r => r.wave != null && r.wave >= 55 && r.wave < 95).length,
+    ...curMean(hrs),
     src: hrs.some(r => r.src === "sg") ? "sg" : "om"
   };
 }
@@ -101,34 +119,34 @@ const SEA_W = { base: 57.2,
   moonRise: 0.7, moonSet: 0.7, transit: -2, morning: 0, evening: 0, waveBand: 3.4, windStrong: 0.6, eilat: 1.1 };
 function seaIndex(x, s, tides, moon, water) {
   if (window.ENGINE && window.ENGINE.SEA_VERSION === 1) return seaIndexV1(x, s, tides, moon);
-  const f = []; const add = (pts, label) => { if (pts) f.push({ pts, label }); }, W = SEA_W;
+  const f = []; const add = (pts, label, ev) => { if (pts) f.push({ pts, label, ev }); }, W = SEA_W;
   const mid = (x.T0 + x.T1) / 2;
   if (tides.length) {
     const ph = tidePhase(tides, x.T0);
     if (ph != null) add(ph < 0.25 ? W.tideLowAfter : ph < 0.5 ? W.tideRising : ph < 0.75 ? W.tideAfterHigh : W.tideFalling,
-      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל");
-    const inside = tides.filter(t => t.T >= x.T0 && t.T <= x.T1), next = tides.find(t => t.T > x.T0);
-    if (inside.some(t => t.type === "high")) add(W.highIn, "שיא גאות בתוך החלון");
-    else if (inside.some(t => t.type === "low")) add(W.lowIn, "שפל בתוך החלון");
-    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה כל החלון" : "המים יורדים כל החלון");
+      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל", "s");
+    const inside = tides.filter(t => tm(t) >= x.T0 && tm(t) <= x.T1), next = tides.find(t => tm(t) > x.T0);
+    if (inside.some(t => t.type === "high")) add(W.highIn, "שיא גאות בתוך החלון", "s");
+    else if (inside.some(t => t.type === "low")) add(W.lowIn, "שפל בתוך החלון", "s");
+    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה כל החלון" : "המים יורדים כל החלון", "s");
   }
   if (x.p0 != null) {
     const p = x.p0;
-    if (p >= 1005 && p < 1013) add(W.pMid, `לחץ ${Math.round(p)} hPa`); else if (p >= 1016) add(W.pHigh, `לחץ ${Math.round(p)} hPa (גבוה)`);
+    if (p >= 1005 && p < 1013) add(W.pMid, `לחץ ${Math.round(p)} hPa`, "w"); else if (p >= 1016) add(W.pHigh, `לחץ ${Math.round(p)} hPa (גבוה)`, "w");
     const d = x.dp3;
-    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני");
-    if (x.dpS < -1) add(W.dpSDrop, "הלחץ יורד בתוך הסשן"); else if (x.dpS > 0.3) add(W.dpSRise, "הלחץ עולה בתוך הסשן");
+    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני", "m"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני", "m"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני", "m");
+    if (x.dpS < -1) add(W.dpSDrop, "הלחץ יורד בתוך הסשן", "m"); else if (x.dpS > 0.3) add(W.dpSRise, "הלחץ עולה בתוך הסשן", "m");
   }
   if (moon) {
     const near = (T, h) => Math.abs(T - mid) <= ((x.T1 - x.T0) / 2 + h * HOUR);
-    if (moon.ev.some(e => e.type === "rise" && near(e.T, 1))) add(W.moonRise, "זריחת ירח בחלון");
-    if (moon.ev.some(e => e.type === "set" && near(e.T, 1))) add(W.moonSet, "שקיעת ירח בחלון");
-    if (moon.transits.some(T => near(T, 0))) add(W.transit, "הירח בשיא הגובה בחלון");
+    if (moon.ev.some(e => e.type === "rise" && near(e.T, 1))) add(W.moonRise, "זריחת ירח בחלון", "w");
+    if (moon.ev.some(e => e.type === "set" && near(e.T, 1))) add(W.moonSet, "שקיעת ירח בחלון", "w");
+    if (moon.transits.some(T => near(T, 0))) add(W.transit, "הירח בשיא הגובה בחלון", "w");
   }
   if (s.id === "morning") add(W.morning, "אור ראשון"); else if (s.id === "evening") add(W.evening, "ערב");
-  if (x.waveBand) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל");
-  if (x.windMax != null && x.windMax >= 14) add(W.windStrong, `רוח עד ${Math.round(x.windMax)} קמ״ש`);
-  if (water && water !== "med") add(W.eilat, "מפרץ אילת");
+  if (x.waveBand) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל", "s");
+  if (x.windMax != null && x.windMax >= 14) add(W.windStrong, `רוח עד ${Math.round(x.windMax)} קמ״ש`, "m");
+  if (water && water !== "med") add(W.eilat, "מפרץ אילת", "w");
   const score = W.base + f.reduce((a, b) => a + b.pts, 0);
   return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)) };
 }
@@ -142,8 +160,8 @@ function seaIndexV1(x, s, tides, moon) {
   if (tides.length) {
     const ph = tidePhase(tides, x.T0);
     if (ph != null) add(ph < 0.25 ? 9.5 : ph < 0.5 ? 3.9 : ph < 0.75 ? -4.9 : -8.6,
-      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל");
-    const inside = tides.filter(t => t.T >= x.T0 && t.T <= x.T1), next = tides.find(t => t.T > x.T0);
+      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל", "s");
+    const inside = tides.filter(t => tm(t) >= x.T0 && tm(t) <= x.T1), next = tides.find(t => tm(t) > x.T0);
     if (inside.some(t => t.type === "high")) add(3.2, "שיא גאות בתוך החלון");
     else if (inside.some(t => t.type === "low")) add(-1.1, "שפל בתוך החלון");
     else if (next) add(next.type === "high" ? 4.7 : -6.9, next.type === "high" ? "הגאות עולה כל החלון" : "המים יורדים כל החלון");
@@ -171,13 +189,13 @@ function seaIndexV1(x, s, tides, moon) {
 
 /* ---------- activity index (lake): pressure trend and wind ---------- */
 function lakeIndex(x, s, moon) {
-  const f = []; const add = (pts, label) => { if (pts) f.push({ pts, label }); };
-  add(-13 * x.dpS, x.dpS < 0 ? "הלחץ יורד בתוך הסשן" : "הלחץ עולה בתוך הסשן");
-  add(-6.5 * x.dp6, x.dp6 < 0 ? "הלחץ ירד ב-6 השעות שלפני" : "הלחץ עלה ב-6 השעות שלפני");
-  if (x.wind != null) add(2 * Math.min(x.wind, 12), `רוח ${Math.round(x.wind)} קמ״ש מעוררת את המים`);
-  if (s.id === "evening") add(-20, "ערב"); else if (s.id === "midday") add(-4, "אמצע היום");
+  const f = []; const add = (pts, label, ev) => { if (pts) f.push({ pts, label, ev }); };
+  add(-13 * x.dpS, x.dpS < 0 ? "הלחץ יורד בתוך הסשן" : "הלחץ עולה בתוך הסשן", "m");
+  add(-6.5 * x.dp6, x.dp6 < 0 ? "הלחץ ירד ב-6 השעות שלפני" : "הלחץ עלה ב-6 השעות שלפני", "m");
+  if (x.wind != null) add(2 * Math.min(x.wind, 12), `רוח ${Math.round(x.wind)} קמ״ש מעוררת את המים`, "m");
+  if (s.id === "evening") add(-20, "ערב", "m"); else if (s.id === "midday") add(-4, "אמצע היום", "m");
   const mid = (x.T0 + x.T1) / 2;
-  if (moon && moon.ev.some(e => Math.abs(e.T - mid) <= (x.T1 - x.T0) / 2)) add(-3, "אירוע ירח בחלון");
+  if (moon && moon.ev.some(e => Math.abs(e.T - mid) <= (x.T1 - x.T0) / 2)) add(-3, "אירוע ירח בחלון", "w");
   const score = Math.round((47 + f.reduce((a, b) => a + b.pts, 0)) / 5) * 5;
   return { score: Math.max(5, Math.min(95, score)), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)) };
 }
@@ -378,6 +396,50 @@ function speciesFit(beach, sp, month, sst) {
   return { score: Math.max(0, Math.min(100, Math.round(s))), why };
 }
 
+/* ---------- evidence strength of each scored factor (v3.4, after Hooked's labels: docs/hooked-il/01 §4.1) ----------
+   How well our own research against the Strike Point session scores supports the factor (docs/strike-point/16, 20):
+   s = strong (decoded: tide state, the 60–90 cm wave band), m = medium (found but not exact: pressure trend, strong wind, the lake model),
+   w = weak (small or unstable effect: pressure level, moon, the Eilat offset), h = hypothesis (not measured: the dark-hours prior). */
+const EVIDENCE = { s: { t: "חזק", c: "high", d: "פוענח במחקר מול ציוני Strike Point" }, m: { t: "בינוני", c: "mid", d: "נמצאה השפעה, לא מדויקת" },
+  w: { t: "חלש", c: "low", d: "השפעה קטנה או לא יציבה במחקר" }, h: { t: "השערה", c: "low", d: "לא נמדד; הנחת עבודה" } };
+
+/* ---------- ocean current and sinker (v3.4, after Hooked: docs/hooked-il/01 §4.1) ----------
+   x.cur / x.curDir = the session's mean Open-Meteo ocean current (km/h, direction the water flows TO). Drift relative to the beach's
+   seaward azimuth az (data/beach-features.js; Mediterranean default 285°): standing on the beach facing the sea, a current toward az+90° pulls
+   the line to the right, toward az−90° to the left. Sinker for bait fishing, Hooked's rule of thumb: on a structure (marina, port,
+   breakwater) 50 g, 60–80 g grip lead when the current is strong (> 1.5 km/h); from the beach by the wave height: < 0.6 m 60–80 g pyramid or
+   flat (100 g in a strong current), < 1 m 100 g grip lead, higher 120–150 g grip lead or wait for the sea to settle. */
+function currentAdvice(x, az, type) {
+  if (!x || x.cur == null) return null;
+  const v = Math.round(x.cur * 10) / 10, strong = v > 1.5, // the model gives 0.1 km/h steps; the advice uses the value it shows
+    wave = x.waveMax != null ? x.waveMax / 100 : 0.5, structure = ["marina", "port", "breakwater"].includes(type);
+  let drift;
+  if (v < 0.4) drift = "הזרם כמעט עומד";
+  else if (az == null || x.curDir == null) drift = "יש זרם";
+  else { const rel = ((x.curDir - az) % 360 + 540) % 360 - 180;
+    drift = Math.abs(rel) <= 30 ? "הזרם מושך החוצה לים" : Math.abs(rel) >= 150 ? "הזרם דוחף חזרה לחוף" : `הזרם מושך את הפיתיון ${rel > 0 ? "ימינה" : "שמאלה"} (כשהפנים לים)`; }
+  const sinker = structure ? (strong ? "60–80 גרם עוגן" : "50 גרם")
+    : wave < 0.6 ? (strong ? "100 גרם" : "60–80 גרם פירמידה או שטוחה") : wave < 1 ? "100 גרם עוגן" : "120–150 גרם עוגן, או לחכות שהים יירגע";
+  return { v, strong, drift, sinker, heavy: v > 1.8 };
+}
+
+/* ---------- rain on the fishing day (v3.4, after Hooked's rain watch: docs/hooked-il/01 §3.2) ----------
+   Over the fishing hours (an hour before nautical dawn to two hours after nautical dusk): an hour is wet at precipitation probability ≥ 60% or
+   ≥ 1 mm, "maybe" at ≥ 35% or ≥ 0.2 mm. Returns null on a dry day; otherwise the peak probability, the total mm and the longest run of dry
+   hours (at least 2) — the best dry window. */
+function rainWatch(rows, key, win) {
+  const h0 = Math.floor(win.dawn - 1), h1 = Math.ceil(win.dusk + 2), hrs = [];
+  for (const r of rows) { const p = il(r.T); if (p.key === key && p.h >= h0 && p.h < h1) hrs.push({ h: p.h, p: r.rain || 0, mm: r.mm || 0 }); }
+  if (!hrs.length) return null;
+  const lv = q => q.p >= 60 || q.mm >= 1 ? 2 : q.p >= 35 || q.mm >= 0.2 ? 1 : 0;
+  const peak = Math.max(...hrs.map(lv)); if (!peak) return null;
+  let best = null, run = null;
+  for (const q of hrs) { run = lv(q) ? null : run && q.h === run.end ? { start: run.start, end: q.h + 1 } : { start: q.h, end: q.h + 1 };
+    if (run && run.end - run.start >= 2 && (!best || run.end - run.start > best.end - best.start)) best = { ...run }; }
+  return { level: peak === 2 ? "wet" : "maybe", maxProb: Math.max(...hrs.map(q => q.p)), mm: hrs.reduce((a, q) => a + q.mm, 0), dry: best,
+    wetFrom: hrs.find(q => lv(q)).h, wetTo: hrs.filter(q => lv(q)).pop().h + 1 };
+}
+
 /* ---------- golden hours and the best hour of a day ---------- */
 function goldenHours(key, lat, lon) {
   const t = SunCalc.getTimes(new Date(ilTime(key, 12)), lat, lon), sr = il(+t.sunrise).hf, ss = il(+t.sunset).hf;
@@ -408,35 +470,35 @@ function bestHour(rows, key, sessions, safeOf) {
 const HOUR_W = { night: -4, twilight: 0, grace: 1 };
 function hourIndex(rows, i, tides, moon, win, water) {
   const r = rows[i], T = r.T, mid = T + HOUR / 2, hr = il(T).h + 0.5, f = [], W = SEA_W;
-  const add = (pts, label) => { if (pts) f.push({ pts, label }); };
+  const add = (pts, label, ev) => { if (pts) f.push({ pts, label, ev }); };
   if (tides.length) {
     const ph = tidePhase(tides, T);
     if (ph != null) add(ph < 0.25 ? W.tideLowAfter : ph < 0.5 ? W.tideRising : ph < 0.75 ? W.tideAfterHigh : W.tideFalling,
-      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל");
-    const near = tides.filter(t => Math.abs(t.T - mid) <= 1.5 * HOUR), next = tides.find(t => t.T > T);
-    if (near.some(t => t.type === "high")) add(W.highIn, "שיא גאות בשעה הזו");
-    else if (near.some(t => t.type === "low")) add(W.lowIn, "שפל בשעה הזו");
-    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה" : "המים יורדים");
+      ph < 0.25 ? "גאות מתחילה לעלות אחרי שפל" : ph < 0.5 ? "גאות עולה לקראת שיא" : ph < 0.75 ? "אחרי שיא הגאות" : "המים יורדים לקראת שפל", "s");
+    const near = tides.filter(t => Math.abs(tm(t) - mid) <= 1.5 * HOUR), next = tides.find(t => tm(t) > T);
+    if (near.some(t => t.type === "high")) add(W.highIn, "שיא גאות בשעה הזו", "s");
+    else if (near.some(t => t.type === "low")) add(W.lowIn, "שפל בשעה הזו", "s");
+    else if (next) add(next.type === "high" ? W.risingAll : W.fallingAll, next.type === "high" ? "הגאות עולה" : "המים יורדים", "s");
   }
   const at = k => rows[i + k] && rows[i + k].p != null ? rows[i + k].p : null, p0 = r.p;
   if (p0 != null) {
-    if (p0 >= 1005 && p0 < 1013) add(W.pMid, `לחץ ${Math.round(p0)} hPa`); else if (p0 >= 1016) add(W.pHigh, `לחץ ${Math.round(p0)} hPa (גבוה)`);
+    if (p0 >= 1005 && p0 < 1013) add(W.pMid, `לחץ ${Math.round(p0)} hPa`, "w"); else if (p0 >= 1016) add(W.pHigh, `לחץ ${Math.round(p0)} hPa (גבוה)`, "w");
     const p3 = at(-3), d = p3 != null ? p0 - p3 : 0;
-    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני");
+    if (d < -1) add(W.dp3Drop, "הלחץ ירד ב-3 השעות שלפני", "m"); else if (d < -0.3) add(W.dp3Fall, "הלחץ ירד מעט ב-3 השעות שלפני", "m"); else if (d > 0.3 && d <= 1) add(W.dp3Rise, "הלחץ עלה מעט ב-3 השעות שלפני", "m");
     const pa = at(-1), pb = at(2), dS = pa != null && pb != null ? pb - pa : 0;
-    if (dS < -1) add(W.dpSDrop, "הלחץ יורד סביב השעה"); else if (dS > 0.3) add(W.dpSRise, "הלחץ עולה סביב השעה");
+    if (dS < -1) add(W.dpSDrop, "הלחץ יורד סביב השעה", "m"); else if (dS > 0.3) add(W.dpSRise, "הלחץ עולה סביב השעה", "m");
   }
   if (moon) {
     const near = (t, h) => Math.abs(t - mid) <= h * HOUR;
-    if (moon.ev.some(e => e.type === "rise" && near(e.T, 2.5))) add(W.moonRise, "זריחת ירח");
-    if (moon.ev.some(e => e.type === "set" && near(e.T, 2.5))) add(W.moonSet, "שקיעת ירח");
-    if (moon.transits.some(t => near(t, 1.5))) add(W.transit, "הירח בשיא הגובה");
+    if (moon.ev.some(e => e.type === "rise" && near(e.T, 2.5))) add(W.moonRise, "זריחת ירח", "w");
+    if (moon.ev.some(e => e.type === "set" && near(e.T, 2.5))) add(W.moonSet, "שקיעת ירח", "w");
+    if (moon.transits.some(t => near(t, 1.5))) add(W.transit, "הירח בשיא הגובה", "w");
   }
-  if (r.wave != null && r.wave >= 55 && r.wave < 95) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל");
-  if (r.wind != null && r.wind >= 14) add(W.windStrong, `רוח ${Math.round(r.wind)} קמ״ש`);
-  if (water && water !== "med") add(W.eilat, "מפרץ אילת");
+  if (r.wave != null && r.wave >= 55 && r.wave < 95) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל", "s");
+  if (r.wind != null && r.wind >= 14) add(W.windStrong, `רוח ${Math.round(r.wind)} קמ״ש`, "m");
+  if (water && water !== "med") add(W.eilat, "מפרץ אילת", "w");
   const light = (hr >= win.dawn - HOUR_W.grace && hr < win.sunrise + 1) || (hr > win.sunset - 1 && hr <= win.dusk + HOUR_W.grace) ? "twilight" : hr >= win.sunrise + 1 && hr <= win.sunset - 1 ? "day" : "night";
-  if (light === "twilight") add(HOUR_W.twilight, "דמדומים"); else if (light === "night") add(HOUR_W.night, "חושך");
+  if (light === "twilight") add(HOUR_W.twilight, "דמדומים", "h"); else if (light === "night") add(HOUR_W.night, "חושך", "h");
   const score = W.base + f.reduce((a, b) => a + b.pts, 0);
   return { score: Math.max(5, Math.min(98, Math.round(score))), factors: f.sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts)), light };
 }
@@ -470,5 +532,5 @@ function bestWindow(curve, fromT) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, currentAdvice, rainWatch, curMean };
 })();

@@ -112,6 +112,14 @@ function adviceFor(s, b) {
     if (fromLand) out.push(["🧭", "רוח מהיבשה — ים שטוח והטלה רחוקה: לדוג בנקודה החשופה"]);
     else if (fromSea) out.push(["🧭", "רוח מהים — לחפש צד מוגן של שובר או מפרצון"]);
   }
+  // v3.4: ocean current and sinker (engine currentAdvice, after Hooked); rain in the window and in the day before
+  if (!lake) { const ca = E.currentAdvice(x, f && f.az != null ? f.az : b.water === "med" ? 285 : null, b.type);
+    if (ca) out.push(["⚓", `זרם ${ca.v.toFixed(1)} קמ״ש — ${ca.drift}. משקולת לפיתיון: ${ca.sinker}${ca.heavy ? "; בדמויים: ג׳יג כבד יותר כדי להגיע לעומק" : ""}`]); }
+  const sessMm = rows.filter(r => r.T >= x.T0 && r.T < x.T1).reduce((a, r) => a + (r.mm || 0), 0), pr = x.rain || 0;
+  if (pr >= 60 || sessMm >= 1) out.push(["☔", `גשם צפוי בחלון (עד ${Math.round(pr)}%${sessMm >= 0.5 ? `, ${sessMm.toFixed(1)} מ״מ` : ""}) — מעיל גשם ושקית לטלפון; סלעים ושוברים רטובים חלקים`]);
+  else if (pr >= 35 || sessMm >= 0.2) out.push(["🌂", `סיכוי לגשם בחלון (${Math.round(pr)}%) — לקחת מעיל`]);
+  const mm24 = rows.filter(r => r.T < x.T0 && r.T >= x.T0 - 24 * HOUR_MS).reduce((a, r) => a + (r.mm || 0), 0);
+  if (mm24 >= 10) out.push(["🟤", `${Math.round(mm24)} מ״מ גשם ב-24 השעות שלפני — מים עכורים ליד החוף ובשפכים: צבעים בולטים`]);
   const mo = +state.day.slice(5, 7);
   if (f && f.tags.includes("מים חמים בחורף") && [11, 12, 1, 2, 3].includes(mo)) out.push(["🌡️", "חורף — המים החמים בקטע הזה מרכזים טורפים (ראו נקודות בחוף)"]);
   if (s.id === "evening" && typeof SunCalc !== "undefined") { const ill = SunCalc.getMoonIllumination(new Date(x.T1)).fraction;
@@ -153,6 +161,8 @@ function dayChips(el, active, onPick) {
 const fmtNum = (v, d = 0) => v == null || isNaN(v) ? "—" : (+v).toFixed(d);
 const safeCls = v => v >= 75 ? "sf-good" : v >= 50 ? "sf-ok" : v >= 30 ? "sf-weak" : "sf-danger";
 const safeName = v => v >= 75 ? "טוב" : v >= 50 ? "סביר" : v >= 30 ? "חלש" : "מסוכן";
+// v3.4: evidence strength of a scored factor (engine EVIDENCE, after Hooked)
+const evChip = ev => { const e = ev && E.EVIDENCE && E.EVIDENCE[ev]; return e ? ` <small class="ev ev-${e.c}" title="חוזק הראיה: ${esc(e.d)}">${e.t}</small>` : ""; };
 function sessionCard(s, b) {
   if (s.na) return `<article class="sess is-na"><h3>${s.name}</h3><p>אין נתונים לשעות האלה</p></article>`;
   const lv = E.level(s.score), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
@@ -171,10 +181,11 @@ function sessionCard(s, b) {
       <div><dt>רוח</dt><dd>${fmtNum(x.wind)} קמ״ש</dd></div>
       <div><dt>לחץ</dt><dd>${fmtNum(x.p0)} ${x.dpS < -0.3 ? "↘" : x.dpS > 0.3 ? "↗" : "→"}</dd></div>
       ${x.sst != null ? `<div><dt>מים</dt><dd>${fmtNum(x.sst, 1)}°</dd></div>` : ""}
+      ${x.cur != null && b.water !== "lake" ? `<div><dt>זרם</dt><dd>${fmtNum(x.cur, 1)} קמ״ש</dd></div>` : ""}
     </dl>
     ${fishLayer.length ? `<p class="sess-fish"><b>דגים לשכבה הזו:</b> ${fishLayer.map(f => `<button type="button" class="fish-link" data-fish="${f.id}">${esc(f.name)}</button>`).join(" · ")}</p>` : ""}
     ${lures.length ? `<p class="sess-lures"><b>דמויים:</b> ${lures.map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ")}</p>` : ""}
-    <details class="why"><summary>למה ${s.score}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? f.pts.toFixed(1) : ""}</span> ${esc(f.label)}</li>`).join("")}</ul></details>
+    <details class="why"><summary>למה ${s.score}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? f.pts.toFixed(1) : ""}</span> ${esc(f.label)}${evChip(f.ev)}</li>`).join("")}</ul>${s.factors.some(f => f.ev) ? `<p class="hint">התווית: חוזק הראיה במחקר שלנו מול ציוני Strike Point. חזק = פוענח · בינוני = נמצאה השפעה, לא מדויקת · חלש = השפעה קטנה · השערה = לא נמדד.</p>` : ""}</details>
   </article>`;
 }
 // official IMS forecast for the beach's zone and day; warnings; Kinneret level
@@ -209,10 +220,12 @@ function beachHeadHtml(b, r, gold, best, boat) {
   const now = rows.reduce((m, x) => !m || Math.abs(x.T - T) < Math.abs(m.T - T) ? x : m, null);
   const tide = r.tides.length ? r.tides.slice(0, 2).map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : null;
   const ltr = v => /^[\d:.\-–· °]+$/.test(v) ? `<bdi dir="ltr">${v}</bdi>` : v; // times and ranges read left to right
+  const rw = E.rainWatch(rows, state.day, r.win), hh = h => String(h % 24).padStart(2, "0") + ":00"; // v3.4: rain and the best dry window
   const tile = (icon, label, val, sub, key) => `<div class="tile${key ? " is-key" : ""}"><span>${icon} ${label}</span><b>${ltr(val)}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
   const tiles = [
     best ? tile("🏆", "השעה הכי טובה", `${String(best.h).padStart(2, "0")}:00`, best.s ? best.s.name : "", true) : null,
-    tile("✨", "שעת הזהב", `${E.hm(gold[0][0])}–${E.hm(gold[0][1])}`, `ערב ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}`),
+    rw ? tile("☔", rw.level === "wet" ? "גשם צפוי" : "סיכוי לגשם", `${Math.round(rw.maxProb)}%`, rw.dry ? `חלון יבש ${hh(rw.dry.start)}–${hh(rw.dry.end)}` : `${hh(rw.wetFrom)}–${hh(rw.wetTo)} · מעיל`)
+      : tile("✨", "שעת הזהב", `${E.hm(gold[0][0])}–${E.hm(gold[0][1])}`, `ערב ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}`),
     tile("🌅", "זריחה · שקיעה", `${E.hm(r.win.sunrise)} · ${E.hm(r.win.sunset)}`, `אור ראשון ${E.hm(r.win.dawn)} · אחרון ${E.hm(r.win.dusk)}`),
     tide ? tile("〰️", "גאות ושפל", tide.split(" · ")[0], tide.split(" · ")[1] || "") : null,
     now && now.sst != null ? tile("🌡️", "מים", `${fmtNum(now.sst, 1)}°`, today ? "עכשיו" : "בבוקר") : null,

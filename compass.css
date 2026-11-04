@@ -56,6 +56,10 @@ body{background:var(--ground);padding-bottom:84px}
 .why li{display:flex;gap:8px;padding:2px 0}
 .why li span{min-width:42px;text-align:end;font-weight:800;direction:ltr}
 .why .pos{color:var(--good)}.why .neg{color:var(--low)}
+/* v3.4: evidence strength next to each factor (compass.js evChip) */
+.why .ev{display:inline-block;align-self:center;font:600 11px Assistant,sans-serif;border:1px solid var(--line);border-radius:999px;padding:0 6px;color:var(--muted);white-space:nowrap}
+.why .ev-high{color:var(--top);border-color:currentColor}.why .ev-mid{color:var(--ink)}
+.why .hint{font-size:12px;margin:6px 0 2px}
 .sess.is-na{opacity:.6}
 .sess.is-past{opacity:.72}
 .past-tag{font:600 12px Assistant,sans-serif;background:#e6eeec;color:var(--muted);border-radius:6px;padding:1px 6px;vertical-align:middle}

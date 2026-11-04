@@ -1,8 +1,8 @@
 /* מצפן הדייג — שליפת תחזית לכל קבוצת נתונים (נקודת ים אחת לכמה חופים סמוכים).
-   מקור חי: Open-Meteo (מזג אוויר + ים: גלים, טמפ' מים, גובה פני הים לגאות).
+   מקור חי: Open-Meteo (מזג אוויר + ים: גלים, טמפ' מים, גובה פני הים לגאות, זרם).
    שכבת דיוק: data/sg.json — קובץ יומי מ-StormGlass (גלים, רוח, משקעים וטמפ' מים) כשהוא עדכני; הלחץ נשאר מ-Open-Meteo. */
 (function () {
-const CACHE_KEY = "compass-forecast-v3", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
+const CACHE_KEY = "compass-forecast-v4", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
 const W_URL = "https://api.open-meteo.com/v1/forecast", M_URL = "https://marine-api.open-meteo.com/v1/marine";
 const list = a => a.map(x => x.toFixed(3)).join(",");
 
@@ -13,7 +13,7 @@ async function fetchOpenMeteo(groups) {
   const wq = `${W_URL}?latitude=${list(ids.map(i => groups[i].lat))}&longitude=${list(ids.map(i => groups[i].lon))}` +
     "&hourly=pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability,precipitation,visibility,temperature_2m&past_days=1&forecast_days=8&timezone=GMT";
   const mq = `${M_URL}?latitude=${list(sea.map(i => groups[i].mlat))}&longitude=${list(sea.map(i => groups[i].mlon))}` +
-    "&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature,sea_level_height_msl&past_days=1&forecast_days=8&timezone=GMT";
+    "&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity,ocean_current_direction&past_days=1&forecast_days=8&timezone=GMT";
   // boat mode: open sea ~11 km west of each Mediterranean data point
   const med = ids.filter(i => groups[i].water === "med");
   const oq = `${M_URL}?latitude=${list(med.map(i => groups[i].lat))}&longitude=${list(med.map(i => groups[i].lon - 0.12))}` +
@@ -26,7 +26,8 @@ async function fetchOpenMeteo(groups) {
     out[id] = h.time.map((t, k) => ({
       T: Date.parse(t + "Z"), p: h.pressure_msl[k], wind: h.wind_speed_10m[k], dir: h.wind_direction_10m[k], gust: h.wind_gusts_10m[k], rain: h.precipitation_probability[k], mm: h.precipitation[k], vis: h.visibility[k], air: h.temperature_2m[k],
       wave: mh && mh.wave_height[k] != null ? mh.wave_height[k] * 100 : null, swell: mh && mh.swell_wave_height[k] != null ? mh.swell_wave_height[k] * 100 : null,
-      per: mh ? mh.wave_period[k] : null, sst: mh ? mh.sea_surface_temperature[k] : null, sl: mh ? mh.sea_level_height_msl[k] : null, src: "om"
+      per: mh ? mh.wave_period[k] : null, sst: mh ? mh.sea_surface_temperature[k] : null, sl: mh ? mh.sea_level_height_msl[k] : null,
+      cur: mh && mh.ocean_current_velocity ? mh.ocean_current_velocity[k] : null, curDir: mh && mh.ocean_current_direction ? mh.ocean_current_direction[k] : null, src: "om"
     }));
     const oi = med.indexOf(id), oh = O && oi >= 0 ? O[oi].hourly : null;
     if (oh) out[id + "@boat"] = out[id].map((r, k) => ({ ...r, wave: oh.wave_height[k] != null ? oh.wave_height[k] * 100 : null, swell: oh.swell_wave_height[k] != null ? oh.swell_wave_height[k] * 100 : null,
