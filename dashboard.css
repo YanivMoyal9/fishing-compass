@@ -124,7 +124,7 @@ textarea:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 
 /* v3.9.3 — the chart is the hero: light and tide behind the curve, safety as a thin strip, HTML labels, pointer picking. */
 .chart-sessions{position:relative;height:22px;margin:4px 0 2px}.chart-sessions>span{position:absolute;top:0;height:22px;display:flex;align-items:center;justify-content:center;font:700 12px/1 var(--font-body);color:var(--brand-ink);white-space:nowrap;overflow:hidden}
-.chart-moon{position:absolute;top:0;height:22px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;color:var(--gold-ink);font:600 11px/1 var(--font-body);white-space:nowrap}.chart-moon svg{width:13px;height:13px;fill:currentColor}
+.chart-moon{position:absolute;top:4px;z-index:1;transform:translateX(-50%);display:flex;align-items:center;gap:3px;padding:1px 6px;border-radius:var(--pill);background:var(--surface-tint);border:1px solid var(--gold-line);color:var(--gold-ink);font:600 11px/1.4 var(--font-body);white-space:nowrap;pointer-events:none}.chart-moon svg{width:13px;height:13px;fill:currentColor}
 .chart-stage{position:relative;touch-action:pan-y;cursor:crosshair;user-select:none;-webkit-user-select:none}
 .dash-chart{display:block;width:100%;height:clamp(170px,22vw,230px);direction:ltr;border-radius:var(--r-sm);overflow:hidden}
 .dash-chart .band-night{fill:var(--band-night)}.dash-chart .band-twilight{fill:var(--band-twilight)}.dash-chart .c-tide{stroke:var(--tide)}
