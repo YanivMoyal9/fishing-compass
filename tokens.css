@@ -1,0 +1,57 @@
+/* מצפן הדייג — tokens.css: המקור היחיד לטוקנים של העיצוב (v3.9).
+   נטען ראשון. אף גיליון אחר לא מגדיר צבעים, רדיוסים, צללים או תנועה ב-:root.
+   השמות הישנים (--teal, --orange, --paper, --card, --soft, --ground…) נשמרים כשמות נרדפים כדי שהגיליונות הקיימים ימשיכו לעבוד. */
+:root{
+  color-scheme:light;
+  /* גופנים וסולם טיפוגרפי */
+  --font-body:Assistant,Arial,sans-serif;--font-display:Heebo,Assistant,Arial,sans-serif;
+  --fs-1:12px;--fs-2:14px;--fs-3:16px;--fs-4:20px;--fs-5:28px;--fs-6:58px;
+  /* משטחים: חול, לבן, ירקרק */
+  --sand:#f7f6ef;--bg:var(--sand);--ground:var(--bg);
+  --surface:#fff;--paper:var(--surface);--card:var(--surface);--surface-tint:#fffffff5;--surface-warm:#fffdf5;
+  --surface-2:#f4f7f5;--soft:var(--surface-2);
+  /* דיו וקווים */
+  --ink:#173a42;--ink-2:#234d54;--muted:#526866;--line:#dce5df;--line-2:#e5e9df;
+  /* ים: המותג */
+  --navy:#123d46;--navy-deep:#092f37;--deep:#083c43;
+  --brand:#176a67;--brand-ink:#12534f;--brand-soft:#e6f1ed;
+  --teal:var(--brand);--teal-deep:var(--brand-ink);--teal-pale:var(--brand-soft);
+  /* זהב וחמרה */
+  --gold:#b47a0d;--gold-ink:#8a5e0a;--gold-soft:#fff4d9;--gold-line:#e4b66a;
+  --accent:#b9512c;--orange:var(--accent);--focus:#ba613c;
+  /* רמות מדד הפעילות (AA על לבן ועל חול) */
+  --top:#176849;--good:#26734f;--ok:#8a651b;--mid:#a34322;--low:#963434;
+  /* בטיחות: טקסט ורצועות רקע */
+  --sf-good:#246c4b;--sf-ok:#866018;--sf-weak:#a24727;--sf-danger:#963434;
+  --band-good:#9fd3b0;--band-ok:#f1dd96;--band-weak:#f4bf8a;--band-bad:#ef9c93;
+  /* משטחי מצב */
+  --ok-bg:#deeee3;--ok-ink:#175944;--ok-line:#c0dacf;
+  --warn-bg:#fff1d6;--warn-ink:#785019;--warn-line:#e4c68f;
+  /* צורה ורווח */
+  --r-sm:10px;--r-md:16px;--r-lg:24px;--pill:999px;--gap:20px;--appbar-h:0px;
+  /* עומק: תמיד היסט ורכות, אף פעם לא הילה */
+  --sh-1:0 3px 4px #183d4203,0 12px 36px #183d4206;--sh-2:0 8px 30px #35482f0a;--sh-3:0 5px 28px #153d4220;
+  /* תנועה */
+  --dur-1:100ms;--dur-2:150ms;--dur-3:200ms;--ease-out:cubic-bezier(.23,1,.32,1);
+}
+/* מצב כהה "ים בלילה": מופעל רק ב-data-theme="dark" (לא אוטומטי) עד שכל הצבעים הקשיחים בגיליונות הישנים יעברו לטוקנים. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --sand:#0f1f24;--surface:#15282e;--surface-tint:#15282ef5;--surface-warm:#1a2f35;--surface-2:#1b3239;
+  --ink:#e7eee9;--ink-2:#cfdeda;--muted:#9fb3ad;--line:#27414a;--line-2:#2b4650;
+  --navy:#dbe8e6;--navy-deep:#eef5f3;--deep:#dbe8e6;
+  --brand:#4fb3ad;--brand-ink:#8fd1cc;--brand-soft:#16343a;
+  --gold:#e0b25a;--gold-ink:#f0cf86;--gold-soft:#3a2d12;--gold-line:#6b5120;--accent:#e08a6a;--focus:#f0a07e;
+  --top:#5fcf9f;--good:#6fc795;--ok:#e2bb5f;--mid:#ec8d6a;--low:#ea7d7d;
+  --sf-good:#7fd3ad;--sf-ok:#e2bb5f;--sf-weak:#ec8d6a;--sf-danger:#ea7d7d;
+  --band-good:#2e6d52;--band-ok:#6b5a1f;--band-weak:#6e4426;--band-bad:#6b2f2f;
+  --ok-bg:#163a2f;--ok-ink:#a6e3c4;--ok-line:#245844;--warn-bg:#3b2c0f;--warn-ink:#f2d59a;--warn-line:#6b5120;
+  --sh-1:0 3px 4px #00000040,0 12px 36px #00000055;--sh-2:0 8px 30px #00000055;--sh-3:0 5px 28px #00000066;
+}
+/* רמות: מחלקה אחת קובעת את צבע הרמה לכל רכיב */
+.lv-top{--lvc:var(--top)}.lv-good{--lvc:var(--good)}.lv-ok{--lvc:var(--ok)}.lv-mid{--lvc:var(--mid)}.lv-low{--lvc:var(--low)}
+.sf-good{--sf:var(--sf-good)}.sf-ok{--sf:var(--sf-ok)}.sf-weak{--sf:var(--sf-weak)}.sf-danger{--sf:var(--sf-danger)}
+/* משטחי הדפדפן נושאים את הפלטה */
+::selection{background:var(--brand-soft);color:var(--navy-deep)}
+:root{accent-color:var(--brand)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:4px}

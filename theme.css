@@ -1,12 +1,5 @@
 /* מצפן הדייג — שכבת עיצוב אחידה (נטענת אחרונה): צבעים, רווחים, כרטיסים, כותרות, צ׳יפים וניווט בתוך הלשונית */
-:root{
-  --brand:#0e6d74;--brand-ink:#0b4f55;--brand-soft:#e6f2f2;--accent:#e0703f;
-  --bg:#f2f5f5;--surface:#fff;--surface-2:#f6f9f9;--ink:#12303a;--muted:#5d7580;--line:#e1e9ea;
-  --r-lg:18px;--r-md:14px;--r-sm:10px;--pill:999px;
-  --sh-1:0 1px 2px rgba(15,45,55,.05),0 6px 18px rgba(15,45,55,.06);
-  --gap:14px;--appbar-h:64px;
-  --ground:var(--bg);--soft:var(--surface-2);--teal-deep:var(--brand-ink);--top:#11845c
-}
+/* tokens: tokens.css */
 body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 h1,h2,h3,h4{font-family:Heebo,Assistant,sans-serif;letter-spacing:-.01em}
 .hint,.src-note{color:var(--muted);font-size:14px;line-height:1.5}

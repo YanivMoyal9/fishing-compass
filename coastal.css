@@ -1,18 +1,10 @@
 /* Coastal — an accessible, responsive visual system for Fishing Compass. */
-:root{
-  --navy:#123d46;--navy-deep:#092f37;--brand:#176a67;--brand-ink:#12534f;
-  --brand-soft:#e6f1ed;--teal:var(--brand);--teal-deep:var(--brand-ink);--teal-pale:var(--brand-soft);
-  --accent:#b9512c;--orange:#b9512c;--bg:#f5f4ef;--ground:var(--bg);--surface:#fff;
-  --surface-2:#f4f7f5;--soft:var(--surface-2);--ink:#173a42;--muted:#526866;--line:#dce5df;
-  --top:#176849;--good:#26734f;--ok:#8a651b;--mid:#a34322;--low:#963434;
-  --r-lg:24px;--r-md:16px;--r-sm:10px;--gap:20px;--appbar-h:88px;
-  --sh-1:0 3px 4px #183d4203,0 12px 36px #183d4206;
-}
+/* tokens: tokens.css */
 body{font-family:Assistant,Arial,sans-serif;line-height:1.6;padding-bottom:0;background:var(--bg)}
 button,input,select{font-family:inherit}button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
 button,a,summary{touch-action:manipulation}
 h1,h2,h3,h4{letter-spacing:-.035em;line-height:1.35}
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #ba613c;outline-offset:4px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 ::selection{background:#bce0d3;color:#092f37}
 .container{width:min(100% - 64px,1280px)}
 .pane{padding-block:28px 64px;min-height:65vh}
@@ -100,7 +92,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,su
 .sess-score span{font-size:14px}.sess-cond{gap:6px;margin:16px 0}.sess-cond div{padding:8px 2px;background:#f3f7f1;border-radius:10px}
 .sess-cond dd{font-size:15px}.sess-cond dt{font-size:11px}.sess-tip{padding:10px 12px;background:#edf3e9;font-size:14px}
 .safe-chip{padding:4px 8px;font-size:11px;display:inline-block;margin-block:4px}
-.sf-good{--sf:#246c4b}.sf-ok{--sf:#866018}.sf-weak{--sf:#a24727}.sf-danger{--sf:#963434}
+
 .advice{padding:12px 14px;margin:14px 0;background:#f5f8f2;border-color:#e2e9dc}.advice summary{line-height:1.5}
 .why{padding-top:10px;border-top:1px solid var(--line);margin-top:16px}.why summary{font-size:13px}
 .sess.is-past{opacity:1}.hourly{gap:10px;padding:14px 2px 6px}.hr{gap:6px;flex:1;min-width:32px}.hr-bar{width:13px;height:76px}.hr b{font-size:13px;font-variant-numeric:tabular-nums}.hr small{font-size:11px}
@@ -182,7 +174,7 @@ details.fish-cal .fc-legend{padding-inline:20px}
 .load-state{margin-block:16px 0;padding:12px 18px;border-radius:12px;border:1px solid #dfdfc9;background:#f6f4e6;font-size:14px}
 @media(min-width:721px) and (max-width:1100px){.appbar{gap:16px;padding-inline:24px}.tabbar button{padding:10px 12px;font-size:14px}.brand small{display:none}.icon-btn{margin-inline-start:10px}.toolbar{grid-template-columns:1fr;gap:16px}.toolbar .chips{justify-content:flex-start}.fish-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sessions{grid-template-columns:1fr}.sess-cond div{padding:10px}.experience-hero h1{font-size:40px}}
 @media(max-width:720px){
-  :root{--appbar-h:72px;--gap:16px;--r-lg:20px}
+  :root{--gap:16px;--r-lg:20px}
   body{padding-bottom:100px}.container{width:calc(100% - 32px)}.pane{padding-block:20px 36px}
   .appbar{height:72px;padding:10px 20px;display:block;backdrop-filter:none}.appbar-inner{width:100%;height:100%}.brand-mark{width:40px;height:40px}.brand-mark svg{width:25px;height:25px}.brand b{font-size:19px}.brand small{font-size:11px;margin-top:2px}.icon-btn{width:40px;height:40px;margin:0}
   .tabbar{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;gap:2px;padding:7px;border-radius:22px;border:1px solid #d3dfd6;background:#fbfcf8f5;box-shadow:0 6px 35px #092f3726;backdrop-filter:blur(20px)}
