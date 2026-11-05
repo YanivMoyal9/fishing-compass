@@ -132,6 +132,9 @@ body{background:var(--ground);padding-bottom:84px}
 .safe-chip.sf-good,.safe-chip.sf-ok,.safe-chip.sf-weak,.safe-chip.sf-danger{background:color-mix(in srgb,var(--sf) 14%,#fff);color:var(--sf);border:1px solid color-mix(in srgb,var(--sf) 40%,#fff)}
 .hr .hr-bar{background:linear-gradient(to top,var(--sf,var(--teal)) calc(var(--v)*1%),#e3ecea 0)}
 .hr.is-best b{color:var(--teal-deep);text-decoration:underline}
+/* v3.9.1: an hour capped by an official warning shows the ceiling as a dashed column; one caption above the strip explains it */
+.hr.is-capped .hr-bar{border:1.5px dashed var(--sf);background:linear-gradient(to top,color-mix(in srgb,var(--sf) 35%,var(--surface)) calc(var(--v)*1%),var(--surface-2) 0)}
+.hourly-cap{margin:0 0 8px;padding:8px 12px;border:1px solid var(--warn-line);border-radius:var(--r-sm);background:var(--warn-bg);color:var(--warn-ink);font-size:13px;line-height:1.5}.hourly-cap[hidden]{display:none}
 .danger{background:#fdecec;border:1px solid #f0b8b8;color:#8a2a2a;border-radius:10px;padding:6px 10px;font-size:14px;font-weight:700;margin:6px 0}
 .caution{background:#fff4e5;border:1px solid #f1d2a8;color:#8a4b12;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 [hidden]{display:none!important}

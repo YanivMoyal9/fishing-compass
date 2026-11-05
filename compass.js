@@ -217,6 +217,8 @@ const NEED = { food: ["🍽️", "אוכל"], ambush: ["🎯", "מארב"], comf
 function whyHereItems(s, b, key = state.day) {
   if (!s || s.na || (state.boat && canBoat(b))) return null;
   const rows = (FC && FC.data[b.group]) || [], w = E.whereToday(b, s.x, s.id, rows, (window.BEACH_FEATURES || {})[b.name], +key.slice(5, 7));
+  // v3.9.1: a lake beach keeps only lake reasoning — rules that speak of the sea, its fish or its tide are dropped (filter by b.water)
+  if (b.water === "lake") { const SEA = /קלאמרי|ברקודה|סרף|שרטונ|שונית|גאות|מהים|ים גבוה|ים צלול|דניס|לברק/; w.pro = w.pro.filter(r => !SEA.test(r.text)); w.con = w.con.filter(r => !SEA.test(r.text)); }
   return w.pro.length || w.con.length ? w : null;
 }
 const whyLi = (r, against) => `<li${against ? ' class="is-con"' : ""}><span aria-hidden="true">${against ? "✋" : NEED[r.need][0]}</span> ${against ? "<b>נגד:</b> " : ""}${esc(r.text)} <small class="conf conf-${r.conf}" title="${NEED[r.need][1]} · רמת ביטחון במחקר">${CONF_T[r.conf]}</small></li>`;
@@ -245,6 +247,8 @@ const fmtNum = (v, d = 0) => v == null || isNaN(v) ? "—" : (+v).toFixed(d);
 const safeCls = v => v >= 75 ? "sf-good" : v >= 50 ? "sf-ok" : v >= 30 ? "sf-weak" : "sf-danger";
 const safeName = v => v >= 75 ? "טוב" : v >= 50 ? "סביר" : v >= 30 ? "חלש" : "מסוכן";
 // v3.4: evidence strength of a scored factor (engine EVIDENCE, after Hooked)
+// v3.9.1: is the session's 40 ceiling the official warning's doing? Then the top banner already says it and the card stays quiet.
+const cappedByWarning = (b, x) => ((FC && FC.data[b.group]) || []).some(r => r.T >= x.T0 && r.T < x.T1 && zoneWarning(b, r.T));
 const evChip = ev => { const e = ev && E.EVIDENCE && E.EVIDENCE[ev]; return e ? ` <small class="ev ev-${e.c}" title="חוזק הראיה: ${esc(e.d)}">${e.t}</small>` : ""; };
 function sessionCard(s, b) {
   if (s.na) return `<article class="sess is-na"><h3>${s.name}</h3><p>אין נתונים לשעות האלה</p></article>`;
@@ -255,7 +259,7 @@ function sessionCard(s, b) {
   return `<article class="sess ${lv.c}${past ? " is-past" : ""}">
     <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
     <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
-    ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
+    ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 && !cappedByWarning(b, x) ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
     ${whyHereHtml(s, b, past)}
     ${(() => { const adv = adviceFor(s, b); return adv.length ? `<details class="advice" ${past ? "" : "open"}><summary>מה עושים בתנאים האלה</summary><ul>${adv.map(([i, t]) => `<li><span aria-hidden="true">${i}</span> ${ltrNums(esc(t))}</li>`).join("")}</ul></details>` : ""; })()}
@@ -272,6 +276,14 @@ function sessionCard(s, b) {
   </article>`;
 }
 // official IMS forecast for the beach's zone and day; warnings; Kinneret level
+// v3.9.1: the live official warnings that concern this beach (sea warnings for its water; heat/rain/flood warnings that name its area)
+const AREA_RE = { "צפון": /גליל מערבי|הכרמל|חיפה|מישור החוף הצפוני|צפון הארץ/, "שרון": /השרון|מישור החוף/, "מרכז": /מישור החוף|גוש דן|תל אביב|המרכז/,
+  "דרום": /מישור החוף הדרומי|אשדוד|אשקלון|הנגב המערבי|הדרום/, "אילת": /אילת|הערבה/, "כנרת": /כנרת|כנרות|עמק הירדן|גליל תחתון|עמק בית שאן/ };
+function beachWarnings(b) {
+  const o = FC && FC.official; if (!o || !o.warnings) return [];
+  const nowT = Date.now(), live = w => { const sp = warnSpan(w); return !sp || nowT < sp[1]; }; // v3.7: expired warnings are not shown
+  return o.warnings.filter(w => live(w) && ((SEA_WARN.test(w.title + w.text) && warnWater(w).includes(b.water)) || (AREA_RE[b.region] || /$^/).test(w.text)));
+}
 function officialHtml(b, key) {
   const o = FC && FC.official; if (!o) return "";
   let h = "";
@@ -282,10 +294,7 @@ function officialHtml(b, key) {
       `<li><span>${p.from.slice(11)}–${p.to.slice(11)}</span> גלים ${p.wave_cm ? p.wave_cm.join("–") + " ס״מ" : "—"} · רוח ${p.wind_kmh ? p.wind_kmh.join("–") + " קמ״ש" : "—"}${p.wind_dir ? " מ" + DIR8(p.wind_dir[0]) + (p.wind_dir[1] !== p.wind_dir[0] ? " עד " + DIR8(p.wind_dir[1]) : "") : ""}${p.water ? " · מים " + p.water + "°" : ""}</li>`).join("") + "</ul></div>";
   }
   // sea warnings always; other warnings (heat, rain, floods) only when they name this beach's area
-  const AREA = { "צפון": /גליל מערבי|הכרמל|חיפה|מישור החוף הצפוני|צפון הארץ/, "שרון": /השרון|מישור החוף/, "מרכז": /מישור החוף|גוש דן|תל אביב|המרכז/,
-    "דרום": /מישור החוף הדרומי|אשדוד|אשקלון|הנגב המערבי|הדרום/, "אילת": /אילת|הערבה/, "כנרת": /כנרת|כנרות|עמק הירדן|גליל תחתון|עמק בית שאן/ };
-  const nowT = Date.now(), live = w => { const sp = warnSpan(w); return !sp || nowT < sp[1]; }; // v3.7: expired warnings are not shown
-  const warn = (o.warnings || []).filter(w => live(w) && ((SEA_WARN.test(w.title + w.text) && warnWater(w).includes(b.water)) || AREA[b.region].test(w.text)));
+  const warn = beachWarnings(b);
   if (warn.length) h += `<details class="warnings"><summary>⚠️ ${warn.length} אזהרות רשמיות פעילות</summary><ul>${warn.map(w => `<li>${esc(w.text || w.title)}</li>`).join("")}</ul><a href="https://ims.gov.il/he/IMSWarnings" target="_blank" rel="noopener">לאתר השירות המטאורולוגי</a></details>`;
   if (b.water === "lake" && o.kinneret) { const k = o.kinneret, below = k.lower_red - k.level;
     h += `<p class="kinneret">מפלס הכנרת: <b>${k.level.toFixed(2)} מ׳</b> (${k.date.split("-").reverse().join("/")})${k.change7d != null ? ` · שבוע: ${k.change7d > 0 ? "+" : ""}${(k.change7d * 100).toFixed(1)} ס״מ` : ""}${below > 0 ? ` · ${below.toFixed(2)} מ׳ מתחת לקו האדום התחתון` : ""}</p>`; }
@@ -459,18 +468,23 @@ function renderToday() {
   $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
   $$("#sessions .fish-link").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   // hourly safety strip (Cormorant mechanics), all 24 hours
+  const capHours = [];
   $("#hourly").innerHTML = r.rows.map(x => {
-    const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f;
-    const tip = `${sf.level} · רוח ${fmtNum(x.wind / 1.852)} קשר${x.gust != null ? `, משבים ${fmtNum(x.gust / 1.852)}` : ""} · גל ${fmtNum(x.wave)} ס״מ${x.mm ? ` · גשם ${fmtNum(x.mm, 1)} מ״מ` : ""}`;
-    return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
+    const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f, cap = zoneWarning(b, x.T); if (cap) capHours.push(h);
+    const tip = `${sf.level} · רוח ${fmtNum(x.wind / 1.852)} קשר${x.gust != null ? `, משבים ${fmtNum(x.gust / 1.852)}` : ""} · גל ${fmtNum(x.wave)} ס״מ${x.mm ? ` · גשם ${fmtNum(x.mm, 1)} מ״מ` : ""}${cap ? " · אזהרה רשמית: תקרה 40" : ""}`;
+    return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}${cap ? " is-capped" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
+  // v3.9.1: one line says what the dashed columns mean, instead of 24 identical "40"s explaining themselves
+  let capNote = $("#hourlyCap"); if (!capNote) { capNote = document.createElement("p"); capNote.id = "hourlyCap"; capNote.className = "hourly-cap"; $("#hourly").before(capNote); }
+  capNote.hidden = !capHours.length;
+  capNote.innerHTML = capHours.length ? `אזהרה רשמית בתוקף ${capHours.length >= r.rows.length ? "כל היום" : `<bdi dir="ltr">${String(capHours[0]).padStart(2, "0")}:00–${String(capHours[capHours.length - 1] + 1).padStart(2, "0")}:00</bdi>`}: מדד הבטיחות מוגבל ל-40 בשעות האלה (העמודות המקווקוות)` : "";
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
   $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · ${Date.now() - FC.at > 3 * HOUR_MS ? `⚠️ נתונים ישנים מ-${new Date(FC.at).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} — אין חיבור לרשת?` : `עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`}` +
     (FC.ocean && FC.ocean.g && FC.ocean.g[b.group] ? " · חזיתות וכלורופיל מלוויין: NASA JPL MUR SST ו-Copernicus Sentinel-3 OLCI, דרך NOAA CoastWatch" : "") + (FC.marineDown && b.water !== "lake" ? " · ⚠️ שרת נתוני הים לא ענה — גלים, טמפ׳ מים וגאות חסרים כרגע" : "");
   renderSpots(b); renderTripCard();
   if (window.FISHING_DASHBOARD) {
     $("#fishingDashboard").setAttribute("aria-busy", "false");
-    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b) });
+    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b), warnings: beachWarnings(b), warnAt: T => zoneWarning(b, T), kinneret: FC.official && FC.official.kinneret || null });
   }
 }
 
