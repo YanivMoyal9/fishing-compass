@@ -24,6 +24,8 @@
   /* בטיחות: טקסט ורצועות רקע */
   --sf-good:#246c4b;--sf-ok:#866018;--sf-weak:#a24727;--sf-danger:#963434;
   --band-good:#9fd3b0;--band-ok:#f1dd96;--band-weak:#f4bf8a;--band-bad:#ef9c93;
+  /* הגרף: אור וגאות מאחורי העקומה */
+  --band-night:#dde5ea;--band-twilight:#f4e7d3;--tide:#5f93b8;
   /* משטחי מצב */
   --ok-bg:#deeee3;--ok-ink:#175944;--ok-line:#c0dacf;
   --warn-bg:#fff1d6;--warn-ink:#785019;--warn-line:#e4c68f;
@@ -47,6 +49,7 @@
   --top:#5fcf9f;--good:#6fc795;--ok:#e2bb5f;--mid:#ec8d6a;--low:#ea7d7d;
   --sf-good:#7fd3ad;--sf-ok:#e2bb5f;--sf-weak:#ec8d6a;--sf-danger:#ea7d7d;
   --band-good:#2e6d52;--band-ok:#6b5a1f;--band-weak:#6e4426;--band-bad:#6b2f2f;
+  --band-night:#0b171c;--band-twilight:#2a2416;--tide:#7fb3d8;
   --ok-bg:#163a2f;--ok-ink:#a6e3c4;--ok-line:#245844;--warn-bg:#3b2c0f;--warn-ink:#f2d59a;--warn-line:#6b5120;
   --danger-bg:#3d1f1c;--danger-ink:#f3b8b0;--danger-line:#6e3a35;
   --danger-bg:#3d1f1c;--danger-ink:#f3b8b0;--danger-line:#6e3a35;

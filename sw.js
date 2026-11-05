@@ -1,7 +1,7 @@
 // מצפן הדייג — עבודה גם בלי רשת: קבצי האפליקציה מהמטמון, התחזית מהרשת (ואם אין — מהמטמון).
-const VERSION = "3.9.2";
+const VERSION = "3.9.3";
 const CACHE = `fishing-compass-${VERSION}`;
-const SHELL = ["./", "index.html", "tokens.css?v=2", "styles.css?v=5", "fixes.css?v=24", "compass.css?v=20", "theme.css?v=12", "coastal.css?v=4", "dashboard.css?v=7", "dashboard.js?v=8", "assets/dashboard-coast.webp", "vendor/suncalc.js", "data/species.js?v=4", "data/species-plus.js?v=2", "data/fish-info.js?v=1", "data/beach-features.js?v=2", "data/seabed.js?v=2", "data/legal.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=4",
+const SHELL = ["./", "index.html", "tokens.css?v=3", "styles.css?v=5", "fixes.css?v=24", "compass.css?v=20", "theme.css?v=12", "coastal.css?v=4", "dashboard.css?v=8", "dashboard.js?v=9", "assets/dashboard-coast.webp", "vendor/suncalc.js", "data/species.js?v=4", "data/species-plus.js?v=2", "data/fish-info.js?v=1", "data/beach-features.js?v=2", "data/seabed.js?v=2", "data/legal.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=4",
   "engine.js?v=14", "forecast.js?v=7", "script.js?v=21", "compass.js?v=42", "manifest.webmanifest?v=6", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3", "assets/shore-hero-spinning.webp", "assets/hero-sunset.webp"];
 // v3.7: install bypasses the browser's HTTP cache (fresh files right after a deploy); only good responses are cached; daily data files
 // are cached under their path without the ?t= query (one entry each, and the offline copy is found); the network gets 8 s before the
