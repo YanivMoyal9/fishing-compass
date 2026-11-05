@@ -102,6 +102,12 @@ const beachByName = n => BEACHES.find(b => b.name === n) || BEACHES[0];
 // VIP beaches: the 14 beaches Strike Point locks to its VIP tier (site list, 30/10/2026) — shown as a small tag next to the name.
 const vipTag = b => b.vip ? ` <span class="vip-tag" title="חוף VIP באתר Strike Point">VIP</span>` : "";
 
+// v3.9.7: the heavy data files load when first needed, not on every visit — fish-info (86 KB) for the fish tab, the fish card and the lure
+// guide; seabed (49 KB) for the strips of a beach. The service worker keeps both in its shell, so offline they come from the cache.
+const lazyScripts = {};
+const loadScript = src => lazyScripts[src] || (lazyScripts[src] = new Promise((ok, no) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => { delete lazyScripts[src]; no(new Error(src)); }; document.head.appendChild(el); }));
+const needFishInfo = () => window.FISH_INFO ? Promise.resolve() : loadScript("data/fish-info.js?v=1");
+const needSeabed = () => window.SEABED ? Promise.resolve() : loadScript("data/seabed.js?v=2");
 /* ---------- tabs ---------- */
 function setTab(t) {
   state.tab = t; store.set("compass-tab", t);
@@ -275,7 +281,7 @@ function dayChips(el, active, onPick) {
   const k0 = todayKey();
   el.innerHTML = Array.from({ length: 7 }, (_, i) => {
     const k = E.addDays(k0, i), d = new Date(E.ilTime(k, 12));
-    return `<button type="button" class="chip ${k === active ? "is-on" : ""}" data-k="${k}">${i === 0 ? "היום" : i === 1 ? "מחר" : DAY[d.getUTCDay()]} <small>${+k.slice(8)}/${+k.slice(5, 7)}</small></button>`;
+    return `<button type="button" class="chip ${k === active ? "is-on" : ""}" data-k="${k}" aria-pressed="${k === active}">${i === 0 ? "היום" : i === 1 ? "מחר" : DAY[d.getUTCDay()]} <small>${+k.slice(8)}/${+k.slice(5, 7)}</small></button>`;
   }).join("");
   el.querySelectorAll("button").forEach(btn => btn.onclick = () => onPick(btn.dataset.k));
 }
@@ -509,7 +515,7 @@ function renderToday() {
   $("#hourly").innerHTML = r.rows.map(x => {
     const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f, cap = zoneWarning(b, x.T); if (cap) capHours.push(h);
     const tip = `${sf.level} · רוח ${fmtNum(x.wind / 1.852)} קשר${x.gust != null ? `, משבים ${fmtNum(x.gust / 1.852)}` : ""} · גל ${fmtNum(x.wave)} ס״מ${x.mm ? ` · גשם ${fmtNum(x.mm, 1)} מ״מ` : ""}${cap ? " · אזהרה רשמית: תקרה 40" : ""}`;
-    return `<div class="hr ${sf.cls}${cap ? " is-capped" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
+    return `<div class="hr ${sf.cls}${cap ? " is-capped" : ""}" role="img" title="${esc(tip)}" aria-label="${h}:00 · בטיחות ${c} · ${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
   // v3.9.1: one line says what the dashed columns mean, instead of 24 identical "40"s explaining themselves
   let capNote = $("#hourlyCap"); if (!capNote) { capNote = document.createElement("p"); capNote.id = "hourlyCap"; capNote.className = "hourly-cap"; $("#hourly").before(capNote); }
@@ -540,6 +546,8 @@ const move = (p, bearing, d) => { const R = 6371000, b = bearing * Math.PI / 180
 const fmtLL = s => `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`;
 let spotsRev = 0; // v3.7: only the latest call may draw (fish/day/beach changes while data or Leaflet is still loading)
 async function renderSpots(b) {
+  // the seabed file is wanted only once the folded details (where the strips live) are open; the toggle listener in load() re-renders then
+  if (!window.SEABED && b.water === "med" && $(".dashboard-details") && $(".dashboard-details").open) needSeabed().then(() => { if (state.tab === "today" && state.beach === b.name) renderSpots(b); }).catch(() => {});
   const rev = ++spotsRev, el = $("#spots");
   if (!zoneIndex) { try { zoneIndex = await (await fetch("data/zones/index.json?v=1")).json(); } catch (e) { zoneIndex = {}; } }
   if (rev !== spotsRev) return;
@@ -792,6 +800,7 @@ function renderTarget() {
   $$("#targetList .rank-row").forEach(btn => btn.onclick = () => { state.day = key; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
 function renderFish() {
+  if (!window.FISH_INFO) needFishInfo().then(() => { if (state.tab === "fish") renderFish(); }).catch(() => {}); // the "know the fish" buttons appear once the profiles arrive
   const b = beachByName(state.beach), month = E.il(Date.now()).mo;
   const sst = FC && FC.data[b.group] ? (FC.data[b.group].find(r => Math.abs(r.T - Date.now()) < 36e5) || {}).sst : null;
   const f = E.fishFor(b, month, sst);
@@ -856,7 +865,8 @@ function lureKitHtml(sp) {
 /* ---------- full fish profile (data/fish-info.js, built by build_fish_info.js from our fish dossiers) ---------- */
 const FISH_SECTIONS = [["זיהוי", "🔎"], ["איפה", "📍"], ["מתי", "📅"], ["תנאים", "🌊"], ["שיטות ודמויים", "🎣"], ["פיתיון", "🪱"], ["חוק", "⚖️"], ["בטיחות", "⚠️"], ["טיפים", "💡"]];
 const rich = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-function fishCard(id) {
+function fishCard(id) { needFishInfo().then(() => fishCardNow(id)).catch(() => {}); }
+function fishCardNow(id) {
   const sp = SPECIES.find(s => s.id === id), info = (window.FISH_INFO || {})[id], dlg = $("#fishDialog"); if (!sp || !info) return;
   const b = beachByName(state.beach), month = E.il(Date.now()).mo, x = info.intel || {};
   const cal = MONTHS.map((m, i) => `<span class="${sp.p && sp.p.includes(i + 1) ? "pk" : sp.m.includes(i + 1) ? "in" : ""}${i + 1 === month ? " now" : ""}">${m}</span>`).join("");
@@ -956,6 +966,7 @@ function openLurePhoto(id) {
   d.showModal(); d.onclick = e => { if (e.target === d) d.close(); };
 }
 function renderLureGuide() {
+  if (!window.FISH_INFO) needFishInfo().then(() => { if (state.tab === "lures") renderLureGuide(); }).catch(() => {});
   const box = $("#lureGuide"); if (!box) return;
   const m = lg.month, all = lgTargets(), sp = all.find(s => s.id === lg.fish);
   const months = MONTHS.map((n, i) => `<button type="button" class="nm${i + 1 === E.il(Date.now()).mo ? " is-now" : ""}${i + 1 === m ? " is-sel" : ""}" data-lgm="${i + 1}">${n}</button>`).join("");
@@ -1208,6 +1219,7 @@ function init() {
   state.beach = beachByName(state.beach).name; // a stored beach that no longer exists falls back to a real one
   $$(".tabbar button").forEach(b => b.onclick = () => setTab(b.dataset.go));
   fillPicker(); setupLog(); setTab(state.tab); setupLureNavigation();
+  const det = $(".dashboard-details"); if (det) det.addEventListener("toggle", () => { if (det.open && !window.SEABED && FC) renderSpots(beachByName(state.beach)); }); // v3.9.7: seabed loads when the strips are first revealed
   $$("[data-dashboard-nav]").forEach(bt => {
     const target = bt.dataset.dashboardNav;
     bt.innerHTML = bt.textContent.replace(/[▥⌖↗]/g, "").trim() + (window.FISHING_DASHBOARD ? FISHING_DASHBOARD.icon(target === "forecast" ? "chart" : target === "map" ? "map" : "lure") : "");

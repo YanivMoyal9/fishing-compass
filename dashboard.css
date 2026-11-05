@@ -6,7 +6,7 @@ body{padding-bottom:110px;background:var(--sand);position:relative;isolation:iso
 .brand{justify-content:center;text-align:center;gap:0}.brand b{font:900 34px/1.25 var(--font-display);letter-spacing:-.04em}.brand small{font:500 18px/1.4 var(--font-body);color:var(--brand-ink);margin-top:1px}
 .brand-mark{position:absolute;inset-inline-start:0;top:6px;width:60px;height:60px;background:#ffffffe3;outline:1px solid #ffffffba;outline-offset:4px;border-color:#9fbcc0}.brand-mark svg{width:34px;height:34px}
 .appbar .icon-btn{position:absolute;inset-inline-end:0;top:6px;margin:0;width:60px;height:60px;background:#fff9eddd;border-color:#d0c1a8;outline:1px solid #fff9ed;outline-offset:4px;border-radius:50%}.icon-btn svg{width:27px;height:27px}
-.tabbar{position:fixed;bottom:14px;inset-inline:0;display:flex;width:min(960px,calc(100% - 32px));margin:auto;justify-content:space-around;padding:9px 14px;gap:6px;min-height:78px;border:1px solid var(--line-2);border-radius:24px;background:var(--surface-tint);box-shadow:var(--sh-3);backdrop-filter:blur(18px);z-index:50}
+.tabbar{position:fixed;bottom:14px;inset-inline:0;display:flex;width:min(960px,calc(100% - 32px));margin:auto;justify-content:space-around;padding:9px 14px;gap:6px;min-height:78px;border:1px solid var(--line-2);border-radius:24px;background:var(--surface-tint);box-shadow:var(--sh-3);z-index:50}
 .tabbar button{flex:1;min-width:0;flex-direction:column;gap:4px;padding:7px 8px;border-radius:14px;font-size:14px;line-height:1.2;color:var(--muted);position:relative}.tabbar svg{width:25px;height:25px}.tabbar button.is-on{background:var(--surface-2);color:var(--deep);box-shadow:none}.tabbar button.is-on:after{content:"";position:absolute;bottom:0;inset-inline:25%;height:3px;background:var(--gold);border-radius:3px}
 .dashboard-home::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:590px;background:linear-gradient(180deg,#fff8e54d 0%,#f7f6ef00 37%,var(--sand) 98%),url('assets/dashboard-coast.webp') center top/cover no-repeat;pointer-events:none}
 .dashboard-home .appbar{background:transparent}.dashboard-home .load-state{margin:8px auto;max-width:980px;background:#fffcf0e8}
@@ -160,3 +160,6 @@ textarea:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
  @starting-style{.fish-dialog[open],.lure-dialog[open],.product-dialog[open]{transform:none}}
  .lure-card:hover,.lure-photo-open:hover img{transform:none}
 }
+
+/* v3.9.7 — the map's own element (re-attached on every render, see dashboard.js) */
+.overview-map .map-host{position:absolute;inset:0}

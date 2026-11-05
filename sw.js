@@ -1,8 +1,8 @@
 // מצפן הדייג — עבודה גם בלי רשת: קבצי האפליקציה מהמטמון, התחזית מהרשת (ואם אין — מהמטמון).
-const VERSION = "3.9.6";
+const VERSION = "3.9.7";
 const CACHE = `fishing-compass-${VERSION}`;
-const SHELL = ["./", "index.html", "tokens.css?v=3", "styles.css?v=6", "fixes.css?v=25", "compass.css?v=22", "theme.css?v=13", "coastal.css?v=5", "dashboard.css?v=10", "dashboard.js?v=10", "assets/dashboard-coast.webp", "vendor/suncalc.js", "data/species.js?v=4", "data/species-plus.js?v=2", "data/fish-info.js?v=1", "data/beach-features.js?v=2", "data/seabed.js?v=2", "data/legal.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=4",
-  "engine.js?v=14", "forecast.js?v=7", "script.js?v=21", "compass.js?v=44", "manifest.webmanifest?v=6", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3", "assets/shore-hero-spinning.webp", "assets/hero-sunset.webp"];
+const SHELL = ["./", "index.html", "tokens.css?v=4", "styles.css?v=6", "fixes.css?v=25", "compass.css?v=22", "theme.css?v=13", "coastal.css?v=5", "dashboard.css?v=11", "dashboard.js?v=11", "assets/dashboard-coast.webp", "vendor/suncalc.js", "data/species.js?v=4", "data/species-plus.js?v=2", "data/fish-info.js?v=1", "data/beach-features.js?v=2", "data/seabed.js?v=2", "data/legal.js?v=1", "fish-art.js?v=2", "data/fish-photos.js?v=15", "data/beaches.js?v=4",
+  "engine.js?v=14", "forecast.js?v=7", "script.js?v=21", "compass.js?v=45", "manifest.webmanifest?v=6", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "data/zones/hashmal.json?v=3", "assets/fonts/assistant-hebrew.woff2?v=1", "assets/fonts/assistant-latin.woff2?v=1", "assets/fonts/heebo-hebrew.woff2?v=1", "assets/fonts/heebo-latin.woff2?v=1", "data/closed_areas.geojson?v=1", "data/zones/index.json?v=1", "assets/hero-sunset.webp"];
 // v3.7: install bypasses the browser's HTTP cache (fresh files right after a deploy); only good responses are cached; daily data files
 // are cached under their path without the ?t= query (one entry each, and the offline copy is found); the network gets 8 s before the
 // cached copy is used.

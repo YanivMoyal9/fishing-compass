@@ -21,9 +21,11 @@
   const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.sun}</svg>`;
   const html = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num = (x,d=0) => x == null || !Number.isFinite(+x) ? '—' : (+x).toFixed(d);
-  let map=null, revision=0;
+  let map=null, mapEl=null, markers=null, revision=0;
+  // v3.9.7: the Leaflet map lives in its own element and survives every re-render (day or beach change): the element is parked, re-attached, and only the markers change
+  const parkMap=()=>{if(mapEl&&mapEl.parentNode)mapEl.parentNode.removeChild(mapEl);};
   function fail(message='התחזית אינה זמינה כרגע. אפשר לרענן ולנסות שוב.') {
-    revision++; if(map){map.remove();map=null;}
+    revision++; parkMap();
     const host=document.getElementById('fishingDashboard'),tc=document.getElementById('tripCard');if(tc&&host.contains(tc))host.after(tc); // the trip card is compass.js's: hand it back before clearing
     host.innerHTML=`<div class="dash-empty">${icon('wave')}<h2>מחכים לעדכון מהים</h2><p>${html(message)}</p><button type="button" id="dashRetry">רענון התחזית</button></div>`;
     document.getElementById('dashRetry').onclick=()=>document.getElementById('refresh').click();
@@ -31,7 +33,7 @@
   async function render(ctx) {
     const {b,r,E,key,onFish,onLure,onBeach,onTab,loadLeaflet,beaches,lureImage,whyHere,warnings=[],warnAt=()=>false,kinneret=null}=ctx;
     const host=document.getElementById('fishingDashboard'),stamp=++revision;
-    if(map){map.remove();map=null;}
+    parkMap();
     { const tc=document.getElementById('tripCard'); if(tc&&host.contains(tc)) host.after(tc); }
     const sessions=r.sessions.filter(s=>!s.na),lake=b.water==='lake',isToday=key===E.il(Date.now()).key,nowH=E.il(Date.now()).hf;
     // v3.3: the day is one 24-hour activity curve (engine.hourCurve, docs/strike-point/21); the recommended window is its best 2–3 hours still ahead
@@ -95,11 +97,15 @@
     host.querySelectorAll('[data-near]').forEach(bt=>bt.onclick=()=>onBeach(near[+bt.dataset.near].name));
     try{
       const L=await loadLeaflet();if(stamp!==revision||!document.getElementById('overviewMap'))return;
-      const el=document.getElementById('overviewMap');el.innerHTML='';map=L.map(el,{scrollWheelZoom:false,zoomControl:false});
-      const tiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri, Maxar, Earthstar Geographics'}).addTo(map);
-      let failed=false;tiles.on('tileerror',()=>{if(failed||stamp!==revision)return;failed=true;const note=host.querySelector('.dash-map-note');if(note)note.textContent='תמונות המפה לא זמינות כרגע. רשימת החופים וקישורי הניווט זמינים למטה.';});
-      near.forEach((q,i)=>L.marker([q.lat,q.lon],{icon:L.divIcon({className:'dash-pin'+(q.name===b.name?' is-selected':''),html:`<span>${i+1}</span>`,iconSize:[32,40],iconAnchor:[16,40]}),title:q.name}).bindPopup(`<b>${html(q.name)}</b><br><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}">ניווט לחוף</a>`).addTo(map));
-      map.fitBounds(near.map(q=>[q.lat,q.lon]),{padding:[35,35],maxZoom:15});
+      const el=document.getElementById('overviewMap');el.innerHTML='';
+      if(!map){mapEl=document.createElement('div');mapEl.className='map-host';el.appendChild(mapEl);map=L.map(mapEl,{scrollWheelZoom:false,zoomControl:false});
+        const tiles=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri, Maxar, Earthstar Geographics'}).addTo(map);
+        markers=L.layerGroup().addTo(map);
+        tiles.on('tileerror',()=>{const note=document.querySelector('#fishingDashboard .dash-map-note');if(note&&!note.dataset.failed){note.dataset.failed='1';note.textContent='תמונות המפה לא זמינות כרגע. רשימת החופים וקישורי הניווט זמינים למטה.';}});
+      }else el.appendChild(mapEl);
+      markers.clearLayers();
+      near.forEach((q,i)=>L.marker([q.lat,q.lon],{icon:L.divIcon({className:'dash-pin'+(q.name===b.name?' is-selected':''),html:`<span>${i+1}</span>`,iconSize:[32,40],iconAnchor:[16,40]}),title:q.name}).bindPopup(`<b>${html(q.name)}</b><br><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}">ניווט לחוף</a>`).addTo(markers));
+      map.invalidateSize();map.fitBounds(near.map(q=>[q.lat,q.lon]),{padding:[35,35],maxZoom:15});
       // A tab may have been hidden while the map was loading.
       requestAnimationFrame(()=>{if(stamp===revision&&map)map.invalidateSize();});
     }catch(e){if(stamp===revision){const el=document.getElementById('overviewMap');if(el)el.innerHTML=`<a class="map-fallback" href="https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lon}" target="_blank" rel="noopener">${icon('map')}פתיחת החוף במפה</a>`;}}
