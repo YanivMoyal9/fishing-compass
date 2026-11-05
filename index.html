@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=4">
 <link rel="stylesheet" href="fixes.css?v=24">
-<link rel="stylesheet" href="compass.css?v=16">
+<link rel="stylesheet" href="compass.css?v=17">
 <link rel="stylesheet" href="theme.css?v=11">
 <link rel="stylesheet" href="coastal.css?v=3">
 <link rel="stylesheet" href="dashboard.css?v=4">
@@ -28,16 +28,17 @@
 <script src="data/species.js?v=4" defer></script>
 <script src="data/species-plus.js?v=2" defer></script>
 <script src="data/fish-info.js?v=1" defer></script>
-<script src="data/beach-features.js?v=1" defer></script>
-<script src="data/seabed.js?v=1" defer></script>
+<script src="data/beach-features.js?v=2" defer></script>
+<script src="data/seabed.js?v=2" defer></script>
+<script src="data/legal.js?v=1" defer></script>
 <script src="fish-art.js?v=2" defer></script>
 <script src="data/fish-photos.js?v=15" defer></script>
-<script src="data/beaches.js?v=3" defer></script>
-<script src="engine.js?v=13" defer></script>
-<script src="forecast.js?v=6" defer></script>
+<script src="data/beaches.js?v=4" defer></script>
+<script src="engine.js?v=14" defer></script>
+<script src="forecast.js?v=7" defer></script>
 <script src="script.js?v=21" defer></script>
 <script src="dashboard.js?v=3" defer></script>
-<script src="compass.js?v=36" defer></script>
+<script src="compass.js?v=38" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#app">דלג לתוכן</a>
@@ -70,6 +71,7 @@
 </div>
 <nav class="dashboard-switch" aria-label="תצוגת התחזית"><button type="button" class="is-selected" data-dashboard-nav="forecast" aria-current="page">תחזית <span aria-hidden="true">▥</span></button><button type="button" data-dashboard-nav="map">מפת חופים <span aria-hidden="true">⌖</span></button><button type="button" data-dashboard-nav="lures">דמויים <span aria-hidden="true">↗</span></button></nav>
 <div id="fishingDashboard" aria-busy="true"><div class="dash-empty"><h1>קוראים את הים…</h1><p>מכינים את התחזית לחוף שלכם</p></div></div>
+<section class="card-lite trip-card" id="tripCard" aria-label="לפני שיוצאים"></section>
 <details class="dashboard-details"><summary>סשנים, אזהרות ומידע נוסף על החוף</summary>
 <div class="beach-head" id="beachHead"></div>
 <nav class="subnav" aria-label="בעמוד הזה"><a href="#sessionsHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 21 13-17 5 1M15 6v10a4 4 0 0 0 8 0v-2l-2 2"/></svg>סשנים</a><a href="#spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M19 10c0 6-7 11-7 11S5 16 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>נקודות בחוף</a><a href="#hourlyHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 3V2m0 7v4l3 2"/></svg>לפי שעה</a><a href="#learnHead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5c-3-2-7-2-10 0v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-3-2-7-2-10 0Zm0 0v15"/></svg>הסברים</a></nav>
@@ -187,8 +189,11 @@
 <label><span>דמוי</span><select id="logLure"></select></label>
 <label><span>אורך (ס״מ)</span><input type="number" id="logLen" min="0" max="300" inputmode="numeric"></label>
 <label><span>מרחק מהחוף (מ׳)</span><input type="number" id="logDist" min="0" max="500" inputmode="numeric" placeholder="למשל 60"></label>
+<label><span>שעות דיג ביציאה</span><input type="number" id="logHours" min="0" max="24" step="0.5" inputmode="decimal" placeholder="למשל 3"></label>
+<label class="chk"><input type="checkbox" id="logReleased"> <span>שוחרר למים</span></label>
 <label class="wide"><span>הערות</span><input type="text" id="logNotes" maxlength="300" placeholder="צבע, קצב, מבנה (שובר, סלע, זרם חוזר)…"></label>
-<div class="log-actions"><button type="submit" class="primary">הוספה ליומן</button><button type="button" id="logExport">ייצוא CSV</button></div>
+<div class="log-actions"><button type="submit" class="primary">הוספה ליומן</button><button type="button" id="logExport">ייצוא CSV</button><button type="button" id="logBackup">גיבוי</button><label class="file-btn"><input type="file" id="logRestore" accept="application/json,.json" hidden>שחזור מגיבוי</label></div>
+<p class="log-msg" id="logMsg" role="status" aria-live="polite"></p>
 </form>
 <ul class="log-list" id="logList"></ul>
 </section>

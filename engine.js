@@ -87,6 +87,8 @@ function curMean(hrs) {
   e /= v.length; n /= v.length;
   return { cur: Math.hypot(e, n), curDir: (Math.atan2(e, n) * 180 / Math.PI + 360) % 360 };
 }
+// the Strike Point wave band: 40–70 cm on the site's StormGlass scale; Open-Meteo reads 20–30 cm higher, so 55–95 cm on Open-Meteo rows
+const inWaveBand = r => r.wave != null && (r.src === "sg" ? r.wave >= 40 && r.wave < 70 : r.wave >= 55 && r.wave < 95);
 function sessionInputs(rows, key, s) {
   const T0 = ilTime(key, Math.floor(s.start)), T1 = ilTime(key, Math.ceil(s.end));
   const hrs = rows.filter(r => r.T >= T0 && r.T < T1);
@@ -101,7 +103,8 @@ function sessionInputs(rows, key, s) {
     wave: avg("wave"), waveMax: max("wave"), wind: avg("wind"), windMax: max("wind"), rain: max("rain"), sst: avg("sst"), air: avg("air"),
     // hours with a 40–70 cm wave on the Strike Point scale (docs/strike-point/16). Open-Meteo runs 20–30 cm higher than the site's
     // StormGlass wave, so the band is tested 20 cm up: 55–95 cm here (calibrated 29/10, docs/strike-point/20 §8; band agreement 69% → 86%)
-    waveBand: hrs.filter(r => r.wave != null && r.wave >= 55 && r.wave < 95).length,
+    // v3.7: hours that carry the StormGlass overlay (data/sg.json) are already on the site's own scale → the site's band, 40–70 cm
+    waveBand: hrs.filter(inWaveBand).length,
     ...curMean(hrs),
     src: hrs.some(r => r.src === "sg") ? "sg" : "om"
   };
@@ -144,7 +147,7 @@ function seaIndex(x, s, tides, moon, water) {
     if (moon.transits.some(T => near(T, 0))) add(W.transit, "הירח בשיא הגובה בחלון", "w");
   }
   if (s.id === "morning") add(W.morning, "אור ראשון"); else if (s.id === "evening") add(W.evening, "ערב");
-  if (x.waveBand) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל", "s");
+  if (x.waveBand) add(W.waveBand, x.src === "sg" ? "גל 40–70 ס״מ (StormGlass) — ים פעיל" : "גל 60–90 ס״מ — ים פעיל", "s");
   if (x.windMax != null && x.windMax >= 14) add(W.windStrong, `רוח עד ${Math.round(x.windMax)} קמ״ש`, "m");
   if (water && water !== "med") add(W.eilat, "מפרץ אילת", "w");
   const score = W.base + f.reduce((a, b) => a + b.pts, 0);
@@ -250,8 +253,11 @@ function safety(r, o = {}) {
   score = Math.min(score, worst + 20);
   if (worst <= 0) score = Math.min(score, 20);
   if (o.warning) score = Math.min(score, 40);
+  // v3.7: thunderstorm (WMO weather code 95–99) — lightning on an exposed breakwater with a carbon rod; CAPE ≥ 1500 with rain likely = possible
+  const storm = r.wcode >= 95 ? "yes" : r.cape >= 1500 && (r.rain || 0) >= 40 ? "maybe" : null;
+  if (storm === "yes") score = Math.min(score, 25); else if (storm === "maybe") score = Math.min(score, 45);
   score = Math.round(Math.max(0, Math.min(100, score)));
-  return { score, f, level: score >= 75 ? "טוב" : score >= 50 ? "סביר" : score >= 30 ? "חלש" : "מסוכן", cls: score >= 75 ? "sf-good" : score >= 50 ? "sf-ok" : score >= 30 ? "sf-weak" : "sf-danger" };
+  return { score, f, storm, level: score >= 75 ? "טוב" : score >= 50 ? "סביר" : score >= 30 ? "חלש" : "מסוכן", cls: score >= 75 ? "sf-good" : score >= 50 ? "sf-ok" : score >= 30 ? "sf-weak" : "sf-danger" };
 }
 const comfort = (r, o) => safety(r, o).score;
 
@@ -270,11 +276,20 @@ function tempFit(sp, sst) {
   return null;
 }
 /* ---------- fish and lures for a beach ---------- */
+// v3.7: a beach report names a species by its name, an alias (aka) or the name without the bracket ("אמנון" = "אמנון (מושט)");
+// ASCII apostrophes and gershayim are normalised (ג'רבידה = ג׳רבידה)
+const normName = t => String(t || "").replace(/['`’]/g, "׳").replace(/"/g, "״").replace(/s+/g, " ").trim();
+const REPORT_ALIAS = { "גרזינון": "גרזנון", "שינן הניבים": "שינן", "סולטן איברהים": "ברבוניה" }; // spellings seen in the reports
+function reported(beach, sp) {
+  const reps = beach.reports; if (!reps || !reps.length) return false;
+  const names = new Set([sp.name, sp.name.replace(/s*(.*)s*$/, ""), ...(sp.aka || [])].map(normName));
+  return reps.some(r => names.has(normName(REPORT_ALIAS[r] || r)) || names.has(normName(r).replace(/s*(.*)s*$/, "")));
+}
 function fishFor(beach, month, sst) {
   const res = { now: [], off: [], protected: [], caution: [] };
   for (const sp of SPECIES) {
     if (!sp.waters.includes(beach.water)) continue;
-    if (beach.water !== "lake" && !sp.habitats.includes(beach.type) && !(beach.reports || []).includes(sp.name)) continue;
+    if (beach.water !== "lake" && !sp.habitats.includes(beach.type) && !reported(beach, sp)) continue;
     if (sp.protectedIn && sp.protectedIn.includes(beach.water)) { res.protected.push(sp); continue; }
     if (sp.caution) { res.caution.push(sp); continue; }
     const peak = sp.p && sp.p.includes(month), inS = sp.m.includes(month);
@@ -282,7 +297,7 @@ function fishFor(beach, month, sst) {
     const row = { sp, peak, tempNote, temp: tf };
     (inS ? res.now : res.off).push(row);
   }
-  res.now.sort((a, b) => (b.peak - a.peak) || ((a.tempNote ? 1 : 0) - (b.tempNote ? 1 : 0)));
+  res.now.sort((a, b) => (!!b.peak - !!a.peak) || ((a.tempNote ? 1 : 0) - (b.tempNote ? 1 : 0)));
   return res;
 }
 /* ---------- why here today (docs/strike-point/18, stage 1) ----------
@@ -402,7 +417,7 @@ function speciesFit(beach, sp, month, sst) {
   if (!sp.waters.includes(beach.water) || sp.caution || (sp.protectedIn && sp.protectedIn.includes(beach.water))) return null;
   let s = sp.p && sp.p.includes(month) ? 90 : sp.m.includes(month) ? 70 : 15;
   const why = [s >= 90 ? "שיא העונה" : s >= 70 ? "בעונה" : "מחוץ לעונה"];
-  if ((beach.reports || []).includes(sp.name)) { s += 10; why.push("דווח בחוף הזה"); }
+  if (reported(beach, sp)) { s += 10; why.push("דווח בחוף הזה"); }
   if (beach.water !== "lake" && !sp.habitats.includes(beach.type)) { s -= 25; why.push("סוג החוף פחות מתאים"); }
   const tf = tempFit(sp, sst);
   if (tf && tf.out) { s -= 12; why.push(tf.text); }                                    // outside the range where it lives
@@ -524,9 +539,10 @@ function solunar(key, lat, lon) {
   const edge = T => T > t0 + 6e5 && T < t0 + 864e5 - 6e5; // a real turning point, not the day's edge
   if (hi && edge(hi.T)) out.push({ k: "major", T: hi.T, from: hi.T - 36e5, to: hi.T + 36e5, what: "הירח במרום" });
   if (lo && edge(lo.T)) out.push({ k: "major", T: lo.T, from: lo.T - 36e5, to: lo.T + 36e5, what: "הירח בנקודה הנמוכה" });
-  const m = SunCalc.getMoonTimes(new Date(t0 + 6e5), lat, lon);
-  if (m.rise) out.push({ k: "minor", T: +m.rise, from: +m.rise - 18e5, to: +m.rise + 18e5, what: "זריחת הירח" });
-  if (m.set) out.push({ k: "minor", T: +m.set, from: +m.set - 18e5, to: +m.set + 18e5, what: "שקיעת הירח" });
+  // SunCalc works from the device's local midnight: ask around the Israeli day and keep what falls inside it (any device time zone)
+  const seen = [];
+  for (const dt of [6e5, 12 * 36e5, 864e5 - 6e5]) { const m = SunCalc.getMoonTimes(new Date(t0 + dt), lat, lon);
+    for (const [T, what] of [[m.rise && +m.rise, "זריחת הירח"], [m.set && +m.set, "שקיעת הירח"]]) if (T && !seen.some(q => Math.abs(q - T) < 6e5)) { seen.push(T); out.push({ k: "minor", T, from: T - 18e5, to: T + 18e5, what }); } }
   return out.filter(p => il(p.T).key === key).sort((a, b) => a.T - b.T);
 }
 
@@ -584,7 +600,7 @@ function hourIndex(rows, i, tides, moon, win, water) {
     if (moon.ev.some(e => e.type === "set" && near(e.T, 2.5))) add(W.moonSet, "שקיעת ירח", "w");
     if (moon.transits.some(t => near(t, 1.5))) add(W.transit, "הירח בשיא הגובה", "w");
   }
-  if (r.wave != null && r.wave >= 55 && r.wave < 95) add(W.waveBand, "גל 60–90 ס״מ — ים פעיל", "s");
+  if (inWaveBand(r)) add(W.waveBand, r.src === "sg" ? "גל 40–70 ס״מ (StormGlass) — ים פעיל" : "גל 60–90 ס״מ — ים פעיל", "s");
   if (r.wind != null && r.wind >= 14) add(W.windStrong, `רוח ${Math.round(r.wind)} קמ״ש`, "m");
   if (water && water !== "med") add(W.eilat, "מפרץ אילת", "w");
   const light = (hr >= win.dawn - HOUR_W.grace && hr < win.sunrise + 1) || (hr > win.sunset - 1 && hr <= win.dusk + HOUR_W.grace) ? "twilight" : hr >= win.sunrise + 1 && hr <= win.sunset - 1 ? "day" : "night";

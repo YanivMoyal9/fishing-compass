@@ -13,6 +13,8 @@ const DIR8 = d => ["צפון", "צפון-מזרח", "מזרח", "דרום-מזר
 let FC = null;
 const HOUR_MS = 36e5;
 const todayKey = () => E.il(Date.now()).key;
+// v3.7: on today, only sessions that have not ended yet can be recommended
+const ahead = (sessions, key) => key !== todayKey() ? sessions : sessions.filter(s => s.end > E.il(Date.now()).hf);
 
 /* ---------- calculation per beach and day ---------- */
 const cache = new Map();
@@ -44,16 +46,49 @@ function lightAt(b, T) {
   const t = sunCache.get(ck);
   return T >= +t.sunrise && T <= +t.sunset ? "day" : (T >= +t.dawn && T < +t.sunrise) || (T > +t.sunset && T <= +t.dusk) ? "twilight" : "night";
 }
-function zoneWarning(b) {
+/* v3.7: an official warning counts only for the water body it names and inside its valid time.
+   Water: "בים התיכון" / "חופי הים התיכון" → med · "מפרץ אילת" / "ים סוף" / "אילת" → eilat · "כנרת" → lake; a sea warning that names no water
+   is taken as Mediterranean (the usual IMS wording). Time: "ב-DD/MM מ-HH עד HH" (to the next day when the end hour is earlier; "עד HH ב-DD/MM"
+   when given); without a parsable time: from the issue time for 24 h. */
+const SEA_WARN = /גלים|ים סוער|ים גבוה|סערה|רוחות חזקות/;
+function warnWater(w) {
+  const t = w.title + " " + w.text, out = [];
+  if (/ים התיכון|הים התיכון|חופי הים/.test(t)) out.push("med");
+  if (/מפרץ אילת|ים סוף|אילת/.test(t)) out.push("eilat");
+  if (/כנרת|כנרות/.test(t)) out.push("lake");
+  if (!out.length && /גלים|ים סוער|ים גבוה/.test(t)) out.push("med");
+  return out;
+}
+function warnSpan(w) {
+  const t = w.text || "", y = new Date().getFullYear();
+  const m = t.match(/ב-?(\d{1,2})\/(\d{1,2})\s*מ-?(\d{1,2})(?::\d{2})?\s*(?:ועד|עד)\s*(\d{1,2})(?::\d{2})?(?:\s*ב-?(\d{1,2})\/(\d{1,2}))?/);
+  if (m) {
+    const key = (d, mo) => `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`, k0 = key(m[1], m[2]);
+    const from = E.ilTime(k0, +m[3]); let to = m[5] ? E.ilTime(key(m[5], m[6]), +m[4]) : E.ilTime(k0, +m[4]);
+    if (to <= from) to += 864e5;
+    return [from, to];
+  }
+  const T = Date.parse(w.date); return isNaN(T) ? null : [T, T + 864e5];
+}
+function zoneWarning(b, T) {
   const o = FC && FC.official; if (!o || !o.warnings) return false;
-  return o.warnings.some(w => /גלים|ים סוער|ים גבוה|סערה|רוחות חזקות/.test(w.title + w.text) || (b.water === "lake" && /כנרת|כנרות/.test(w.text) && /רוח|סערה|גלים/.test(w.text)));
+  return o.warnings.some(w => {
+    if (!(SEA_WARN.test(w.title + w.text) || (/כנרת|כנרות/.test(w.text) && /רוח|סערה|גלים/.test(w.text)))) return false;
+    if (!warnWater(w).includes(b.water)) return false;
+    const sp = warnSpan(w); return !sp || T == null || (T >= sp[0] && T < sp[1]);
+  });
 }
 function lakeWaveAt(T) {
   const z = FC && FC.official && FC.official.sea && FC.official.sea.zones["211"]; if (!z) return null;
-  const p = z.periods.find(q => { const a = Date.parse(q.from.replace(" ", "T") + ":00+02:00"), c = Date.parse(q.to.replace(" ", "T") + ":00+02:00"); return T >= a && T < c; });
+  // IMS local time ("YYYY-MM-DD HH:MM") → Israel time incl. summer time (v3.7; was a fixed +02:00)
+  const at = s => E.ilTime(s.slice(0, 10), +s.slice(11, 13) + +s.slice(14, 16) / 60);
+  const p = z.periods.find(q => { const a = at(q.from), c = at(q.to); return T >= a && T < c; });
   return p && p.wave_cm ? p.wave_cm[1] / 100 : null;
 }
-function safetyCtx(b, r) { return { lake: b.water === "lake", light: lightAt(b, r.T), lakeWave: b.water === "lake" ? lakeWaveAt(r.T) : null, warning: zoneWarning(b) }; }
+function safetyCtx(b, r) { return { lake: b.water === "lake", light: lightAt(b, r.T), lakeWave: b.water === "lake" ? lakeWaveAt(r.T) : null, warning: zoneWarning(b, r.T) }; }
+// v3.7: a beach whose shore point is inside (or within ~60 m of) a nature reserve or a military area — never recommended (data/legal.js);
+// port polygons are too broad (they include breakwaters where people fish), so ports stay as information only
+const closedAt = b => { const a = window.LEGAL && window.LEGAL.areas && window.LEGAL.areas[b.name]; return a ? a.find(x => ["reserve", "military"].includes(x.kind) && x.dist_m <= 60) || null : null; };
 const beachByName = n => BEACHES.find(b => b.name === n) || BEACHES[0];
 // VIP beaches: the 14 beaches Strike Point locks to its VIP tier (site list, 30/10/2026) — shown as a small tag next to the name.
 const vipTag = b => b.vip ? ` <span class="vip-tag" title="חוף VIP באתר Strike Point">VIP</span>` : "";
@@ -90,6 +125,11 @@ function featuresHtml(b) {
    Our fishing-knowledge matrix (docs/strike-point/04 §2, §6, §7): sea state × wind, light, pressure trend, after a storm,
    onshore / offshore wind, warm water in winter, moon. */
 const DIRDIFF = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
+// v3.7: the stream that empties near the beach (data/legal.js STREAMS when present; otherwise the beach's own "שפך נחל" tag)
+function streamNear(b) {
+  const L = window.LEGAL && window.LEGAL.streams && window.LEGAL.streams[b.name]; if (L) return L.stream;
+  const f = (window.BEACH_FEATURES || {})[b.name]; return f && f.tags.includes("שפך נחל") ? "נחל" : null;
+}
 // v3.6: satellite ocean signals for the beach's data group (data/ocean.json): SST fronts, chlorophyll level and colour edges, SST anomaly.
 // Shore anglers get a front or an edge only when it is close (≤ 12 km); in boat mode up to 30 km. Images older than 7 days are ignored.
 function oceanAdvice(b) {
@@ -102,6 +142,13 @@ function oceanAdvice(b) {
     out.push(["🌡️", `חזית טמפרטורה${f.strong ? " חדה" : ""} ~${Math.round(f.dist_km)} ק״מ ל${DIR8(f.bearing_deg)}${dT ? ` (הפרש ~${dT}° בין המים)` : ""} — דגי פיתיון וטורפים פלגיים (פלמידה, טונית, אינטיאס) מסיירים לאורך קווים כאלה${f.dist_km > 12 ? "; רלוונטי לסירה" : ""} · לוויין ${dm(sstDate)}`]);
   }
   if (fresh(sstDate) && o.sstA != null && Math.abs(o.sstA) >= 1.5) out.push(["🌡️", `המים ${o.sstA > 0 ? "חמים" : "קרים"} ב-${Math.abs(o.sstA).toFixed(1)}° מהרגיל לעונה — ${o.sstA > 0 ? "מינים של מים חמים נשארים מאוחר יותר" : "המעבר לדגי החורף מוקדם"} · לוויין`]);
+  // v3.7: water clarity — the satellite estimate (Kd490 → Secchi depth) corrected by the last two days of waves and rain near the shore
+  { const rows = (FC.data && FC.data[b.group]) || [], now = Date.now(), past = rows.filter(r => r.T <= now && r.T > now - 48 * 36e5);
+    const wMax = past.reduce((m, r) => Math.max(m, r.wave || 0), 0), mm = past.reduce((a, r) => a + (r.mm || 0), 0);
+    const kdOk = fresh(o.kdDate) && o.clarity, stormy = wMax >= 150 || mm >= 15;
+    if (stormy) out.push(["💧", `צלילות: עכור ליד החוף — ${wMax >= 150 ? `גלים עד ${Math.round(wMax)} ס״מ` : `${Math.round(mm)} מ״מ גשם`} ביומיים האחרונים: צבעים בולטים (צ׳רטרוז, זוהר), רעש ורטט; לברק ודניס בסרף`]);
+    else if (kdOk) { const T = { clear: ["צלול", "חוט דק, ליידר פלואורוקרבון ודמויים טבעיים; עדיף שחר ודמדומים"], mid: ["בינוני", "צבעים טבעיים עם נגיעת ניגוד"], murky: ["עכור", "צבעים בולטים, רעש ורטט"] }[o.clarity];
+      if (T) out.push(["💧", `צלילות: ${T[0]}${o.secchi_m ? ` (ראות במים ~${o.secchi_m >= 40 ? "40+" : o.secchi_m} מ׳ בים הפתוח)` : ""} — ${T[1]} · לוויין ${dm(o.kdDate)}`]); } }
   if (fresh(chlDate)) {
     if (o.chlLvl === "high") out.push(["🟢", `מים ירוקים ליד החוף (כלורופיל ${o.chl.toFixed(1)} מ״ג/מ״ק): הרבה מזון ודגיגים, אבל פחות צלול — צבעים בולטים; אחרי סערה זו בעיקר עכירות · לוויין ${dm(chlDate)}`]);
     else if (o.chlLvl === "low") out.push(["🔵", `מים כחולים ודלים (כלורופיל ${o.chl.toFixed(2)}): צלול מאוד — חוט דק, דמויים טבעיים ושעות אור עמום · לוויין ${dm(chlDate)}`]);
@@ -139,8 +186,17 @@ function adviceFor(s, b) {
   else if (pr >= 35 || sessMm >= 0.2) out.push(["🌂", `סיכוי לגשם בחלון (${Math.round(pr)}%) — לקחת מעיל`]);
   const mm24 = rows.filter(r => r.T < x.T0 && r.T >= x.T0 - 24 * HOUR_MS).reduce((a, r) => a + (r.mm || 0), 0);
   if (mm24 >= 10) out.push(["🟤", `${Math.round(mm24)} מ״מ גשם ב-24 השעות שלפני — מים עכורים ליד החוף ובשפכים: צבעים בולטים`]);
+  // v3.7: thunderstorms in the window (WMO code 95–99, or high CAPE with rain likely)
+  const win = rows.filter(r => r.T >= x.T0 && r.T < x.T1), thunder = win.some(r => r.wcode >= 95), unstable = !thunder && win.some(r => r.cape >= 1500 && (r.rain || 0) >= 40);
+  if (thunder) out.push(["⚡", "סופת רעמים צפויה בחלון — ברק פוגע בחכה ארוכה על שובר או חוף פתוח: לא לצאת, או לפנות לרכב בשמיעת רעם ולחכות 30 דקות אחרי הרעם האחרון"]);
+  else if (unstable) out.push(["🌩️", "אוויר לא יציב עם סיכוי לממטרים — ייתכנו רעמים: לעקוב אחרי השמיים ולהתרחק מהמים ברעם הראשון"]);
+  // v3.7: runoff after rain near a stream mouth (Ministry of Health advice: no bathing after rain near outlets) — murky water, don't eat the catch
+  const mm48 = rows.filter(r => r.T < x.T0 && r.T >= x.T0 - 48 * HOUR_MS).reduce((a, r) => a + (r.mm || 0), 0), sm = streamNear(b);
+  if (!lake && sm && mm48 >= 15) out.push(["🚱", `${Math.round(mm48)} מ״מ גשם ביומיים — ${esc(sm)} שופך ליד החוף מי נגר ולעיתים ביוב: מים עכורים, ולא מומלץ לאכול דגים שנתפסו ליד השפך`]);
+  // v3.7: jellyfish season (Rhopilema nomadica swarms, mainly June–August)
+  if (b.water === "med" && [6, 7, 8].includes(+state.day.slice(5, 7))) out.push(["🪼", "עונת המדוזות — לבדוק דיווחים לפני היציאה (meduzot.co.il), לא לגעת במדוזות שנתפסו בחוט, ובצריבה: לשטוף במי ים, לא במים מתוקים"]);
   const mo = +state.day.slice(5, 7);
-  if (f && f.tags.includes("מים חמים בחורף") && [11, 12, 1, 2, 3].includes(mo)) out.push(["🌡️", "חורף — המים החמים בקטע הזה מרכזים טורפים (ראו נקודות בחוף)"]);
+  if (f && f.tags.includes("מים חמים בחורף") && (x.sst != null ? x.sst <= 21 : [12, 1, 2, 3].includes(mo))) out.push(["🌡️", `מים ${x.sst != null ? fmtNum(x.sst, 1) + "°" : "קרים"} — המים החמים בקטע הזה מרכזים טורפים (ראו נקודות בחוף)`]);
   // v3.6: jig weight for this beach's depth at a 50 m cast, the current, wind and waves; swell direction against the shore
   if (!lake) { const prof = E.depthProfile(b.depth), z50 = prof ? E.depthAt(prof, 50) : null, jw = E.jigWeight(z50, x.cur, x.windMax, w);
     out.push(["⚖️", `משקל ג׳יג / מתכת: ${jw[0]}–${jw[1]} ג׳${z50 != null ? ` (עומק ~${fmtNum(z50, 1)} מ׳ בהטלה של 50 מ׳)` : ""}${x.cur > 1 || x.windMax > 25 ? " — כבד יותר בגלל ה" + [x.cur > 1 ? "זרם" : "", x.windMax > 25 ? "רוח" : ""].filter(Boolean).join(" וה") : ""}`]);
@@ -228,7 +284,8 @@ function officialHtml(b, key) {
   // sea warnings always; other warnings (heat, rain, floods) only when they name this beach's area
   const AREA = { "צפון": /גליל מערבי|הכרמל|חיפה|מישור החוף הצפוני|צפון הארץ/, "שרון": /השרון|מישור החוף/, "מרכז": /מישור החוף|גוש דן|תל אביב|המרכז/,
     "דרום": /מישור החוף הדרומי|אשדוד|אשקלון|הנגב המערבי|הדרום/, "אילת": /אילת|הערבה/, "כנרת": /כנרת|כנרות|עמק הירדן|גליל תחתון|עמק בית שאן/ };
-  const warn = (o.warnings || []).filter(w => /גלים|ים סוער|ים גבוה|סערה|רוחות חזקות/.test(w.title + w.text) || AREA[b.region].test(w.text));
+  const nowT = Date.now(), live = w => { const sp = warnSpan(w); return !sp || nowT < sp[1]; }; // v3.7: expired warnings are not shown
+  const warn = (o.warnings || []).filter(w => live(w) && ((SEA_WARN.test(w.title + w.text) && warnWater(w).includes(b.water)) || AREA[b.region].test(w.text)));
   if (warn.length) h += `<details class="warnings"><summary>⚠️ ${warn.length} אזהרות רשמיות פעילות</summary><ul>${warn.map(w => `<li>${esc(w.text || w.title)}</li>`).join("")}</ul><a href="https://ims.gov.il/he/IMSWarnings" target="_blank" rel="noopener">לאתר השירות המטאורולוגי</a></details>`;
   if (b.water === "lake" && o.kinneret) { const k = o.kinneret, below = k.lower_red - k.level;
     h += `<p class="kinneret">מפלס הכנרת: <b>${k.level.toFixed(2)} מ׳</b> (${k.date.split("-").reverse().join("/")})${k.change7d != null ? ` · שבוע: ${k.change7d > 0 ? "+" : ""}${(k.change7d * 100).toFixed(1)} ס״מ` : ""}${below > 0 ? ` · ${below.toFixed(2)} מ׳ מתחת לקו האדום התחתון` : ""}</p>`; }
@@ -284,13 +341,118 @@ function beachHeadHtml(b, r, gold, best, boat) {
     ${officialHtml(b, state.day)}`;
 }
 
+/* ---------- v3.7: "before you go" card — crowding, legal notes, webcams, model agreement, share, emergency ----------
+   Information only: none of it changes the activity index (the Strike Point-calibrated index stays the truth). */
+// Jewish holidays and festivals in Israel (Hebcal, free, CORS) — fetched once a day; Friday afternoon, Saturday, holidays and the summer
+// vacation are busy days on the beaches.
+let HOLI = null, holiP = null;
+function loadHolidays() {
+  if (HOLI || holiP) return holiP;
+  const key = "compass-holidays", c = store.get(key, null), t = todayKey();
+  if (c && c.at === t) { HOLI = c.items; return Promise.resolve(); }
+  const end = E.addDays(t, 14);
+  holiP = fetch(`https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&i=on&lg=he&start=${t}&end=${end}`).then(r => r.json())
+    .then(j => { HOLI = (j.items || []).map(x => ({ date: x.date.slice(0, 10), title: x.hebrew || x.title, yt: !!x.yomtov, big: /CH''M|Chanukah|Pesach|Sukkot|Shavuot|Rosh Hashana|Purim|Independence/.test(x.title) }));
+      store.set(key, { at: t, items: HOLI }); }).catch(() => { HOLI = []; }).finally(() => { holiP = null; if (state.tab === "today") renderTripCard(); });
+  return holiP;
+}
+function crowdTxt(key) {
+  const d = new Date(E.ilTime(key, 12)), wd = d.getUTCDay(), mo = +key.slice(5, 7), hol = (HOLI || []).filter(h => h.date === key && (h.yt || h.big));
+  const why = [...hol.map(h => h.title), wd === 6 ? "שבת" : wd === 5 ? "שישי" : "", [7, 8].includes(mo) ? "חופש גדול" : ""].filter(Boolean);
+  if (!why.length) return "";
+  return `👥 ${[...new Set(why)].join(" · ")} — עומס צפוי בחופים ובחניות: להגיע מוקדם או לבחור חוף שקט${wd === 6 || hol.some(h => h.yt) ? "; רוב חנויות הדיג סגורות" : ""}`;
+}
+// model agreement: wind (ECMWF, ICON, GFS) and waves (ECMWF WAM, Météo-France, NOAA) per group, fetched once per group and hour
+const MODELS = {}, modelsP = {};
+function loadModels(b) {
+  const g = GROUPS[b.group]; if (!g) return null;
+  const ck = b.group + Math.floor(Date.now() / 36e5); if (MODELS[ck] || modelsP[ck]) return MODELS[ck] || null;
+  const w = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&hourly=wind_speed_10m&models=ecmwf_ifs025,icon_seamless,gfs_seamless&forecast_days=8&timezone=GMT`).then(r => r.json());
+  const m = g.water === "lake" ? Promise.resolve(null) : fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${g.mlat}&longitude=${g.mlon}&hourly=wave_height&models=ecmwf_wam025,meteofrance_wave,ncep_gfswave025&forecast_days=8&timezone=GMT`).then(r => r.json()).catch(() => null);
+  modelsP[ck] = Promise.all([w, m]).then(([W, M]) => { MODELS[ck] = { W, M }; }).catch(() => { MODELS[ck] = { W: null, M: null }; })
+    .finally(() => { delete modelsP[ck]; if (state.tab === "today" && state.beach === b.name) renderTripCard(); });
+  return null;
+}
+function spread(h, prefix, T0, T1, scale) {
+  if (!h || !h.hourly) return null;
+  const keys = Object.keys(h.hourly).filter(k => k.startsWith(prefix)); if (keys.length < 2) return null;
+  let worst = 0, n = 0;
+  h.hourly.time.forEach((t, i) => { const T = Date.parse(t + "Z"); if (T < T0 || T >= T1) return;
+    const v = keys.map(k => h.hourly[k][i]).filter(x => x != null).map(x => x * scale); if (v.length < 2) return; n++; worst = Math.max(worst, Math.max(...v) - Math.min(...v)); });
+  return n ? worst : null;
+}
+function agreementTxt(b, s) {
+  const M = MODELS[b.group + Math.floor(Date.now() / 36e5)]; if (!M || !s || !s.x) return "";
+  const wi = spread(M.W, "wind_speed_10m", s.x.T0, s.x.T1, 1), wa = spread(M.M, "wave_height", s.x.T0, s.x.T1, 100);
+  if (wi == null && wa == null) return "";
+  const bad = (wa != null && wa >= 50) || (wi != null && wi >= 15), mid = (wa != null && wa >= 25) || (wi != null && wi >= 8);
+  const lv = bad ? ["נמוכה", "is-warn"] : mid ? ["בינונית", ""] : ["גבוהה", "is-ok"];
+  return `<span class="${lv[1]}">🎯 הסכמה בין מודלי התחזית ל${esc(s.name)}: <b>${lv[0]}</b></span>${wa != null ? ` · פער גלים עד ${Math.round(wa)} ס״מ` : ""}${wi != null ? ` · פער רוח עד ${Math.round(wi)} קמ״ש` : ""}${bad ? " — התחזית לא יציבה: לבדוק שוב לפני היציאה" : ""}`;
+}
+const EMERGENCY = [["101", "מד״א"], ["100", "משטרה"], ["04-7771900", "מרכז הרעלות"], ["*3639", "רשות הטבע והגנים"]];
+// v3.7: "may I fish here?" — the phone's location against the closed areas (reserves, ports, military, seasonal) and the declared bathing
+// beaches; boundaries are indicative (OpenStreetMap and regulation text), the regulation governs
+let closedP = null;
+const inRing = (p, ring) => { let ins = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j];
+  if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) ins = !ins; } return ins; };
+const inGeom = (p, g) => (g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : []).some(poly => inRing(p, poly[0]) && !poly.slice(1).some(h => inRing(p, h)));
+const distM = (a, b) => { const R = 6371000, r = Math.PI / 180, dLat = (b[1] - a[1]) * r, dLon = (b[0] - a[0]) * r * Math.cos((a[1] + b[1]) / 2 * r); return R * Math.hypot(dLat, dLon); };
+function nearM(p, g) { let best = Infinity; (g.type === "Polygon" ? [g.coordinates] : g.coordinates).forEach(poly => poly[0].forEach(q => { best = Math.min(best, distM(p, q)); })); return best; }
+function checkHere(b) {
+  const out = $("#checkHereOut"); if (!out) return;
+  if (!navigator.geolocation) { out.textContent = "הדפדפן לא נותן מיקום."; return; }
+  out.textContent = "בודק מיקום…";
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const p = [pos.coords.longitude, pos.coords.latitude];
+    try {
+      const G = await (closedP || (closedP = fetch("data/closed_areas.geojson?v=1").then(r => r.json())));
+      const inside = G.features.filter(f => inGeom(p, f.geometry)), near = G.features.filter(f => !inside.includes(f) && nearM(p, f.geometry) <= 150);
+      const L = window.LEGAL || {}, nb = BEACHES.map(q => ({ q, d: distM(p, [q.lon, q.lat]) })).sort((x, y) => x.d - y.d)[0], bath = nb && nb.d < 1500 && L.bathing && L.bathing[nb.q.name];
+      const lines = [...inside.map(f => `⛔ אתם בתוך: <b>${esc(f.properties.name)}</b> — ${esc(f.properties.rule || "")}`), ...near.map(f => `⚠️ ליד (פחות מ-150 מ׳): ${esc(f.properties.name)} — לא להטיל לתוך התחום`)];
+      if (bath && bath.bathing && bath.dist_m < 300) lines.push(`🏖️ קרוב לחוף רחצה מוכרז (${esc(bath.name)}) — אסור לדוג בתחומו`);
+      out.innerHTML = (lines.length ? lines.join("<br>") : "✅ לא נמצא כאן שטח סגור, שמורה או חוף רחצה מוכרז לפי המפות שלנו.") + ` <small>(דיוק המיקום ~${Math.round(pos.coords.accuracy)} מ׳; הגבולות משוערים — שלטים בשטח והתקנות קובעים)</small>`;
+    } catch (e) { out.textContent = "לא הצלחנו לטעון את מפת השטחים הסגורים (אין חיבור?)."; }
+  }, () => { out.textContent = "לא התקבל מיקום — אשרו גישה למיקום בהגדרות הדפדפן."; }, { enableHighAccuracy: true, timeout: 15000 });
+}
+function renderTripCard() {
+  const el = $("#tripCard"); if (!el || !FC) return;
+  const b = beachByName(state.beach), r = beachDay(b, state.day), s = ahead(r.sessions, state.day).filter(q => !q.na).sort((p, q) => q.score - p.score)[0];
+  loadHolidays(); loadModels(b);
+  const L = window.LEGAL || {}, bath = L.bathing && L.bathing[b.name], areas = (L.areas && L.areas[b.name]) || [], cams = (L.webcams && L.webcams[b.name]) || [];
+  const mo = +state.day.slice(5, 7), lines = [];
+  const cr = crowdTxt(state.day); if (cr) lines.push(esc(cr));
+  const ag = agreementTxt(b, s); if (ag) lines.push(ag);
+  // declared bathing place: the 2016 order (sec. 27) forbids fishing in it with no time limit; in practice it is enforced in the bathing season
+  if (bath && bath.bathing) { const sz = ((L.meta && L.meta.season && L.meta.season[b.water]) || bath.season || "03-25..10-10").split(".."), md = state.day.slice(5), inSeason = md >= sz[0] && md <= sz[1];
+    lines.push(`🏖️ חוף רחצה מוכרז — ${esc(bath.name)}${bath.dist_m ? ` (~${bath.dist_m} מ׳)` : ""}: לפי צו מקומות רחצה (2016) <b>אסור לדוג בתחום חוף רחצה מוכרז</b>${inSeason ? " — בעונת הרחצה האכיפה מלאה, בעיקר בשעות המצילים" : "; מחוץ לעונת הרחצה האכיפה נדירה, אבל האיסור בצו לא מוגבל בזמן"}. לדוג מחוץ לתחום החוף.`); }
+  for (const a of areas.slice(0, 3)) lines.push(`${a.kind === "reserve" ? "🐢" : a.kind === "military" ? "🚫" : "⚓"} ${esc(a.name)}${a.dist_m ? ` (~${a.dist_m} מ׳)` : " — נקודת החוף בתוך התחום"}: ${esc(a.rule || "בדקו את ההגבלות במקום")}`);
+  if (cams.length) lines.push(`📹 מצלמות חוף: ${cams.slice(0, 3).map(c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>`).join(" · ")}`);
+  const ll = `${b.lat},${b.lon}`;
+  el.innerHTML = `<h2>🧭 לפני שיוצאים</h2>${lines.length ? `<ul class="trip-lines">${lines.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}
+    <div class="trip-actions"><button type="button" id="sharePlan">📤 שיתוף התוכנית</button><button type="button" id="shareLoc">📍 שליחת המיקום שלי</button><button type="button" id="checkHere">🛑 מותר לדוג כאן?</button></div><p class="hint" id="checkHereOut" role="status" aria-live="polite"></p>
+    <details class="sos"><summary>🆘 חירום</summary><p class="sos-nums">${EMERGENCY.map(([n, t]) => `<a href="tel:${n.replace(/-/g, "")}" class="sos-n"><b dir="ltr">${n}</b> ${t}</a>`).join("")}</p>
+    <p class="hint">עקיצה של דג ארסי (דרקון, זהרון, סיכן, עקרבנון): מים חמים ככל שאפשר לסבול (43–45°) 30–90 דקות. בליעה של דג רעיל או קוצר נשימה — 101 מיד. נפילה מסלע או שובר: לא להזיז את הנפגע.</p></details>`;
+  $("#sharePlan").onclick = () => {
+    const ret = s ? E.hm(Math.min(24, s.end + 0.5)) : "";
+    const text = `יוצא לדוג ב${b.name}${s ? ` — ${s.name} ${E.hm(s.start)}–${E.hm(s.end)}` : ""}${ret ? `, חוזר בערך ב-${ret}` : ""}.\nניווט: https://waze.com/ul?ll=${ll}&navigate=yes`;
+    if (navigator.share) navigator.share({ title: "מצפן הדייג", text }).catch(() => {}); else open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  };
+  $("#checkHere").onclick = () => checkHere(b);
+  $("#shareLoc").onclick = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(p => {
+      const text = `המיקום שלי עכשיו (דיג ב${b.name}): https://maps.google.com/?q=${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`;
+      if (navigator.share) navigator.share({ title: "המיקום שלי", text }).catch(() => {}); else open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+    }, () => alert("לא התקבל מיקום — אשרו גישה למיקום בהגדרות הדפדפן."), { enableHighAccuracy: true, timeout: 15000 });
+  };
+}
 function renderToday() {
   if (!FC) return;
   const b = beachByName(state.beach); if (!state.day) state.day = todayKey();
   dayChips($("#dayChips"), state.day, k => { state.day = k; renderToday(); });
   const boat = state.boat && canBoat(b);
   const r = beachDay(b, state.day, boat);
-  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(r.rows, state.day, r.sessions, r.safeOf);
+  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(state.day === todayKey() ? r.rows.filter(q => q.T >= Date.now() - HOUR_MS) : r.rows, state.day, ahead(r.sessions, state.day), r.safeOf);
   $("#beachHead").innerHTML = beachHeadHtml(b, r, gold, best, boat);
   const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
   $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
@@ -303,9 +465,9 @@ function renderToday() {
     return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
-  $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}` +
-    (FC.ocean && FC.ocean.g && FC.ocean.g[b.group] ? " · חזיתות וכלורופיל מלוויין: NASA JPL MUR SST ו-Copernicus Sentinel-3 OLCI, דרך NOAA CoastWatch" : "");
-  renderSpots(b);
+  $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · ${Date.now() - FC.at > 3 * HOUR_MS ? `⚠️ נתונים ישנים מ-${new Date(FC.at).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })} — אין חיבור לרשת?` : `עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`}` +
+    (FC.ocean && FC.ocean.g && FC.ocean.g[b.group] ? " · חזיתות וכלורופיל מלוויין: NASA JPL MUR SST ו-Copernicus Sentinel-3 OLCI, דרך NOAA CoastWatch" : "") + (FC.marineDown && b.water !== "lake" ? " · ⚠️ שרת נתוני הים לא ענה — גלים, טמפ׳ מים וגאות חסרים כרגע" : "");
+  renderSpots(b); renderTripCard();
   if (window.FISHING_DASHBOARD) {
     $("#fishingDashboard").setAttribute("aria-busy", "false");
     FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b) });
@@ -324,13 +486,15 @@ const move = (p, bearing, d) => { const R = 6371000, b = bearing * Math.PI / 180
   const la2 = Math.asin(Math.sin(la) * Math.cos(r) + Math.cos(la) * Math.sin(r) * Math.cos(b));
   return [la2 * 180 / Math.PI, (lo + Math.atan2(Math.sin(b) * Math.sin(r) * Math.cos(la), Math.cos(r) - Math.sin(la) * Math.sin(la2))) * 180 / Math.PI]; };
 const fmtLL = s => `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`;
+let spotsRev = 0; // v3.7: only the latest call may draw (fish/day/beach changes while data or Leaflet is still loading)
 async function renderSpots(b) {
-  const el = $("#spots");
+  const rev = ++spotsRev, el = $("#spots");
   if (!zoneIndex) { try { zoneIndex = await (await fetch("data/zones/index.json?v=1")).json(); } catch (e) { zoneIndex = {}; } }
+  if (rev !== spotsRev) return;
   const id = zoneIndex[b.name];
   if (!id) { el.hidden = true; el.innerHTML = ""; if (spotMap) { spotMap.remove(); spotMap = null; } return; }
   if (!zoneData[id]) { try { zoneData[id] = await (await fetch(`data/zones/${id}.json?v=${id === "hashmal" ? 3 : 1}`)).json(); } catch (e) { el.hidden = true; return; } }
-  if (state.beach !== b.name) return;
+  if (rev !== spotsRev || state.beach !== b.name) return;
   const z = zoneData[id], month = +state.day.slice(5, 7), winter = [11, 12, 1, 2, 3].includes(month);
   const inSeason = new Set(E.fishFor(b, month).now.map(r => r.sp.id));
   const ids = Object.keys(z.species).sort((p, q) => inSeason.has(q) - inSeason.has(p));
@@ -380,8 +544,8 @@ async function renderSpots(b) {
   wire();
   $$("#spots .fish-link").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   $("#spotFish").onchange = e => { store.set("compass-spot-fish", e.target.value); renderSpots(b); };
-  let L; try { L = await loadLeaflet(); } catch (e) { $("#spotMap").innerHTML = '<p class="hint">המפה לא נטענה (אין חיבור). הנקודות והקואורדינטות למטה עדיין תקפות.</p>'; return; }
-  const box = $("#spotMap"); if (!box || state.beach !== b.name || spotMap) return; box.innerHTML = "";
+  let L; try { L = await loadLeaflet(); } catch (e) { if (rev === spotsRev && $("#spotMap")) $("#spotMap").innerHTML = '<p class="hint">המפה לא נטענה (אין חיבור). הנקודות והקואורדינטות למטה עדיין תקפות.</p>'; return; }
+  const box = $("#spotMap"); if (rev !== spotsRev || !box || state.beach !== b.name || spotMap) return; box.innerHTML = "";
   const map = spotMap = L.map(box, { scrollWheelZoom: false, zoomSnap: 0.25 });
   const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Esri, Maxar, Earthstar Geographics" }).addTo(map);
   const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" });
@@ -422,7 +586,7 @@ function renderRank() {
   $("#rankRegion").onchange = e => { state.rankRegion = e.target.value; renderRank(); };
   $("#rankSession").value = state.rankSession; $("#rankSession").onchange = e => { state.rankSession = e.target.value; renderRank(); };
   const rows = BEACHES.filter(b => state.rankRegion === "all" || b.region === state.rankRegion).map(b => {
-    const r = beachDay(b, state.rankDay), ok = r.sessions.filter(s => !s.na);
+    const r = beachDay(b, state.rankDay), ok = ahead(r.sessions.filter(s => !s.na), state.rankDay);
     const s = state.rankSession === "best" ? ok.sort((a, c) => c.score - a.score)[0] : ok.find(q => q.id === state.rankSession);
     return { b, s };
   }).filter(x => x.s).sort((a, c) => c.s.score - a.s.score);
@@ -430,7 +594,7 @@ function renderRank() {
   $("#rankList").innerHTML = rows.map(({ b, s }, i) => {
     const lv = E.level(s.score);
     return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)}${vipTag(b)} <small>${esc(b.region)}</small></span>
-      <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
+      <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${closedAt(b) ? `<span class="rl" title="${esc(closedAt(b).name)}: ${esc(closedAt(b).rule || "")}">⛔</span>` : ""}${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
   }).join("");
   $$("#rankList .rank-row, #goToday .go-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
@@ -448,17 +612,17 @@ function renderGoToday(rows) {
   const fish = fishes.find(f => f.id === state.rankFish), safeOk = s => !s.safe || s.safe.min >= 30;
   // "best session" here = the best SAFE session of the beach (the ranking list below keeps the plain best, with its safety chip)
   const cands = rows.map(({ b, s }) => {
-    if (state.rankSession === "best" && !safeOk(s)) s = beachDay(b, state.rankDay).sessions.filter(q => !q.na && safeOk(q)).sort((a, c) => c.score - a.score)[0] || s;
+    if (state.rankSession === "best" && !safeOk(s)) s = ahead(beachDay(b, state.rankDay).sessions, state.rankDay).filter(q => !q.na && safeOk(q)).sort((a, c) => c.score - a.score)[0] || s;
     return { b, s, w: whyHereItems(s, b, state.rankDay), safeMin: s.safe ? s.safe.min : null, inSeason: fish ? E.fishFor(b, month, s.x.sst).now.some(r => r.sp.id === fish.id) : undefined };
   });
-  const top = E.goToday(cands, 3), where = state.rankRegion === "all" ? "כל האזורים" : state.rankRegion;
+  const top = E.goToday(cands.filter(c => !closedAt(c.b)), 3), where = state.rankRegion === "all" ? "כל האזורים" : state.rankRegion;
   const allUnsafe = cands.length && cands.every(c => c.safeMin != null && c.safeMin < 30);
   const sessName = state.rankSession === "best" ? "הסשן הטוב ביום" : { morning: "בוקר", midday: "צהריים", evening: "ערב" }[state.rankSession];
   el.innerHTML = `<h2>לאן לנסוע היום <small>${esc(where)} · ${sessName}${fish ? " · " + esc(fish.name) : ""}</small></h2>` + (top.length ? `<ol>${top.map((c, i) =>
     `<li><button type="button" class="go-row ${c.lv.c}" data-b="${esc(c.b.name)}"><span class="rk">${i + 1}</span><span class="gn"><b>${esc(c.b.name)}</b>${vipTag(c.b)} <small>${esc(c.b.region)} · ${c.s.name} ${E.hm(c.s.start)}</small>
       ${c.reason ? `<span class="go-reason"><span aria-hidden="true">${NEED[c.reason.need][0]}</span> ${esc(c.reason.text)}</span>` : `<span class="go-reason">תנאים טובים לסשן, בלי יתרון מיוחד במבנה החוף</span>`}</span><span class="go-lv">${c.lv.t}</span></button></li>`).join("")}</ol>
     <p class="hint">מתי (מדד הפעילות של הסשן) + איפה (המבנה של החוף מול תנאי היום) + עונה. מודל ידע ומחקר, עדיין לא מאומת בתפיסות. הרשימה המלאה למטה.</p>`
-    : `<p class="hint">${allUnsafe ? `${sessName === "הסשן הטוב ביום" ? "כל הסשנים" : "הסשן"} ב${esc(where)} ביום הזה עם בטיחות מתחת ל-30 — אין המלצה. בדקו את שכבת הבטיחות בכרטיס החוף.` : fish ? `אין חוף ב${esc(where)} שבו ה${esc(fish.name)} בעונה ביום הזה.` : "אין סשן זמין ביום הזה באזור."}</p>`);
+    : `<p class="hint">${allUnsafe ? `${sessName === "הסשן הטוב ביום" ? "כל הסשנים" : "הסשן"} ב${esc(where)} ביום הזה עם בטיחות מתחת ל-30 — אין המלצה. בדקו את שכבת הבטיחות בכרטיס החוף.` : fish ? `אין חוף ב${esc(where)} שבו ה${esc(fish.name)} בעונה ביום הזה.` : state.rankDay === todayKey() ? "הסשנים של היום כבר הסתיימו באזור — בחרו את מחר." : "אין סשן זמין ביום הזה באזור."}</p>`);
 }
 
 /* ---------- fish ---------- */
@@ -556,10 +720,10 @@ function renderTarget() {
     const day = beachDay(b, key), act = sp.active || [];
     // sessions that match the fish's active hours (dawn → morning, dusk/night → evening, day → midday)
     const want = new Set([...(act.includes("dawn") ? ["morning"] : []), ...(act.includes("day") ? ["midday"] : []), ...(act.includes("dusk") || act.includes("night") ? ["evening"] : [])]);
-    const ss = day.sessions.filter(s => !s.na && (!want.size || want.has(s.id))).sort((a, c) => c.score - a.score)[0];
+    const ss = ahead(day.sessions, key).filter(s => !s.na && (!want.size || want.has(s.id))).sort((a, c) => c.score - a.score)[0];
     if (!ss) return null;
     return { b, fit, s: ss, rank: Math.round(0.6 * fit.score + 0.4 * ss.score) };
-  }).filter(Boolean).filter(r => r.fit.score >= 40).sort((a, c) => c.rank - a.rank).slice(0, 15);
+  }).filter(Boolean).filter(r => r.fit.score >= 40 && !closedAt(r.b)).sort((a, c) => c.rank - a.rank).slice(0, 15);
   out.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" class="rank-row ${E.level(r.rank).c}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)}${vipTag(r.b)} <small>${esc(r.b.region)} · ${r.fit.why.join(", ")}</small></span>
     <span class="rs">${r.s.name} ${E.hm(r.s.start)}</span><span class="rv">${r.rank}</span>${r.b.legal ? `<span class="rl" title="${esc(r.b.legal)}">⚖️</span>` : ""}</button></li>`).join("") : "<li class='empty'>אין חוף מתאים היום לדג הזה.</li>";
   $$("#targetList .rank-row").forEach(btn => btn.onclick = () => { state.day = key; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
@@ -857,19 +1021,38 @@ async function pastCond(id, b, date, T) {
   } catch (e) { /* offline: the catch stays without conditions */ }
 }
 const condTxt = c => c.cond ? ` · <span class="log-cond">${[c.cond.wave != null ? `גל ${Math.round(c.cond.wave)} ס״מ` : "", c.cond.wind != null ? `רוח ${Math.round(c.cond.wind)} קמ״ש` : "", c.cond.p != null ? `${Math.round(c.cond.p)} hPa` : "", c.cond.sst != null ? `מים ${Math.round(c.cond.sst)}°` : ""].filter(Boolean).join(" · ")}</span>` : "";
+// v3.7: a trip without a catch is logged too (needed to test the index against real outcomes); each entry stores the index, the session,
+// the safety score, the tide phase and the moon at that hour; legal checks (minimum size, protected species, daily bag reminder); backup.
+const NONE = "__none";
+const spByName = n => SPECIES.find(s => s.name === n);
+function snapshot(b, date, T) {
+  try {
+    const d = beachDay(b, date), hr = E.il(T).hf, s = d.sessions.find(q => !q.na && hr >= q.start - 0.25 && hr <= q.end + 0.25);
+    const row = d.rowsAll.find(q => Math.abs(q.T - T) < 31 * 6e4), ph = b.water === "lake" ? null : E.tidePhase(d.tidesAll, T);
+    return { sess: s ? s.id : null, score: s ? s.score : null, safe: row ? d.safeOf(row) : null, tide: ph == null ? null : Math.round(ph * 100) / 100,
+      moon: typeof SunCalc !== "undefined" ? Math.round(SunCalc.getMoonIllumination(new Date(T)).fraction * 100) / 100 : null };
+  } catch (e) { return null; }
+}
+const logLine = c => {
+  const trip = c.fish === NONE;
+  return `<li${trip ? ' class="trip"' : ""}><b>${trip ? "יציאה בלי תפיסה" : esc(c.fish)}</b>${c.released ? ' <em class="rel-tag">שוחרר</em>' : ""} · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.hours ? ` · ${esc(c.hours)} שעות` : ""}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${condTxt(c)}${c.snap && c.snap.score != null ? ` · <span class="log-cond">מדד ${esc(c.snap.score)}</span>` : ""}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
+      <button type="button" class="del" data-id="${esc(c.id)}" aria-label="מחיקה">✕</button></li>`; };
 function renderLog() {
   const list = store.get(LOG_KEY, []);
   const fishSel = $("#logFish");
-  if (!fishSel.options.length) fishSel.innerHTML = `<option value="">דג</option>` + SPECIES.map(s => `<option>${esc(s.name)}</option>`).join("") + "<option>אחר</option>";
+  if (!fishSel.options.length) fishSel.innerHTML = `<option value="">דג</option><option value="${NONE}">— יציאה בלי תפיסה —</option>` + SPECIES.map(s => `<option>${esc(s.name)}</option>`).join("") + "<option>אחר</option>";
   const bSel = $("#logBeach");
   if (!bSel.options.length) bSel.innerHTML = REGIONS.map(r => `<optgroup label="${r}">${BEACHES.filter(b => b.region === r).map(b => `<option>${esc(b.name)}</option>`).join("")}</optgroup>`).join("");
   bSel.value = state.beach;
   const lSel = $("#logLure");
   if (!lSel.options.length) lSel.innerHTML = `<option value="">דמוי / פיתיון</option>` + Object.entries(LURE_TYPES).map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join("");
-  $("#logList").innerHTML = list.length ? list.slice().reverse().map(c => `<li><b>${esc(c.fish)}</b> · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${condTxt(c)}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
-      <button type="button" class="del" data-id="${c.id}" aria-label="מחיקה">✕</button></li>`).join("") : `<li class="empty">עוד אין תפיסות ביומן.</li>`;
-  $$("#logList .del").forEach(btn => btn.onclick = () => { store.set(LOG_KEY, store.get(LOG_KEY, []).filter(c => c.id !== btn.dataset.id)); renderLog(); });
+  const trips = list.filter(c => c.fish === NONE).length, fish = list.length - trips;
+  $("#logList").innerHTML = list.length ? `<li class="log-sum">${fish} תפיסות · ${trips} יציאות בלי תפיסה</li>` + list.slice().reverse().map(logLine).join("") : `<li class="empty">עוד אין תפיסות ביומן.</li>`;
+  $$("#logList .del").forEach(btn => btn.onclick = () => { if (!confirm("למחוק את הרשומה?")) return; store.set(LOG_KEY, store.get(LOG_KEY, []).filter(c => c.id !== btn.dataset.id)); renderLog(); });
 }
+const logMsg = (t, cls) => { const m = $("#logMsg"); if (m) { m.innerHTML = t; m.className = "log-msg" + (cls ? " " + cls : ""); } };
+// ask the browser to keep the log (Safari deletes site data after 7 days without a visit unless the app is on the home screen)
+async function keepLog() { try { if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch (e) { /* not supported */ } }
 function setupLog() {
   const now = E.il(Date.now());
   $("#logDate").value = now.key; $("#logTime").value = `${String(now.h).padStart(2, "0")}:${String(now.mi).padStart(2, "0")}`;
@@ -878,21 +1061,49 @@ function setupLog() {
   $("#logForm").onsubmit = e => {
     e.preventDefault();
     const c = { id: String(Date.now()), date: $("#logDate").value, time: $("#logTime").value, beach: $("#logBeach").value, fish: $("#logFish").value, lure: $("#logLure").value,
-      len: $("#logLen").value, dist: $("#logDist").value, notes: $("#logNotes").value.trim() };
+      len: $("#logLen").value, dist: $("#logDist").value, hours: $("#logHours").value, released: $("#logReleased").checked, notes: $("#logNotes").value.trim() };
     if (!c.fish) { $("#logFish").focus(); return; }
-    // conditions at catch time, for later calibration of the index
-    const b = beachByName(c.beach), rows = FC && FC.data[b.group], T = E.ilTime(c.date, +c.time.slice(0, 2) + +c.time.slice(3) / 60);
+    const b = beachByName(c.beach), sp = spByName(c.fish), notes = [];
+    if (c.fish === NONE) { c.len = ""; c.released = false; }
+    // legal checks: a protected species or a fish under the minimum size is logged as released, with the reason
+    if (sp && sp.protectedIn && sp.protectedIn.includes(b.water)) { c.released = true; notes.push(`⛔ ${esc(sp.name)} מוגן כאן — חובה לשחרר מיד למים.`); }
+    if (sp && sp.caution) notes.push(`⚠️ ${esc(sp.name)}: ${esc(sp.caution)}`);
+    if (sp && sp.min && c.len && +c.len < sp.min && !c.released) { c.released = true; notes.push(`📏 ${esc(c.len)} ס״מ — מתחת לגודל המינימלי החוקי (${sp.min} ס״מ). נרשם כשוחרר: יש להחזיר למים.`); }
+    // conditions and the index at catch time, for later calibration
+    const rows = FC && FC.data[b.group], T = E.ilTime(c.date, +c.time.slice(0, 2) + +c.time.slice(3) / 60);
     if (rows) { const r = rows.find(q => Math.abs(q.T - T) < 31 * 6e4); if (r) c.cond = { p: r.p, wave: r.wave, wind: r.wind, sst: r.sst }; }
-    const all = store.get(LOG_KEY, []); all.push(c); store.set(LOG_KEY, all);
-    $("#logNotes").value = ""; $("#logLen").value = ""; renderLog();
+    if (FC) c.snap = snapshot(b, c.date, T);
+    const all = store.get(LOG_KEY, []); all.push(c); store.set(LOG_KEY, all); keepLog();
+    const kept = all.filter(q => q.date === c.date && q.fish !== NONE && !q.released).length;
+    if (kept >= 2) notes.push(`🧺 ${kept} דגים נשמרו היום. תזכורת: לדייג חובב מותרים בערך 5 ק״ג ביום (או שני דגים גדולים) — בדקו את התקנות העדכניות.`);
+    logMsg(notes.length ? notes.join("<br>") : c.fish === NONE ? "נרשמה יציאה בלי תפיסה — גם זה עוזר לכייל את המדד." : "נשמר ביומן ✓", notes.some(n => /⛔|📏/.test(n)) ? "is-warn" : "");
+    $("#logNotes").value = ""; $("#logLen").value = ""; $("#logReleased").checked = false; renderLog();
     if (!c.cond && b) pastCond(c.id, b, c.date, T);
   };
+  const csvCell = v => { let t = String(v == null ? "" : v); if (/^[=+\-@]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; }; // no formulas in Excel
+  const download = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
   $("#logExport").onclick = () => {
     const all = store.get(LOG_KEY, []); if (!all.length) return;
-    const head = ["date", "time", "beach", "fish", "lure", "length_cm", "distance_m", "pressure", "wave_cm", "wind_kmh", "sst", "notes"];
-    const csv = [head.join(",")].concat(all.map(c => [c.date, c.time, c.beach, c.fish, c.lure, c.len, c.dist, c.cond && c.cond.p, c.cond && c.cond.wave, c.cond && c.cond.wind, c.cond && c.cond.sst, c.notes]
-      .map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(","))).join("\n");
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = "fishing-compass-catches.csv"; a.click();
+    const head = ["date", "time", "beach", "fish", "released", "lure", "length_cm", "distance_m", "hours", "pressure", "wave_cm", "wind_kmh", "sst", "session", "index", "safety", "tide_phase", "moon", "notes"];
+    const csv = [head.join(",")].concat(all.map(c => [c.date, c.time, c.beach, c.fish === NONE ? "(no catch)" : c.fish, c.released ? 1 : 0, c.lure, c.len, c.dist, c.hours, c.cond && c.cond.p, c.cond && c.cond.wave, c.cond && c.cond.wind, c.cond && c.cond.sst,
+      c.snap && c.snap.sess, c.snap && c.snap.score, c.snap && c.snap.safe, c.snap && c.snap.tide, c.snap && c.snap.moon, c.notes].map(csvCell).join(","))).join("\n");
+    download(new Blob(["﻿" + csv], { type: "text/csv" }), "fishing-compass-catches.csv");
+  };
+  $("#logBackup").onclick = () => { const all = store.get(LOG_KEY, []); if (!all.length) { logMsg("היומן ריק — אין מה לגבות."); return; }
+    download(new Blob([JSON.stringify({ app: "fishing-compass", v: 1, at: new Date().toISOString(), catches: all })], { type: "application/json" }), `fishing-compass-backup-${todayKey()}.json`);
+    logMsg(`גובו ${all.length} רשומות. שמרו את הקובץ בענן או שלחו אותו לעצמכם.`); };
+  $("#logRestore").onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text()), inc = Array.isArray(j) ? j : j.catches; if (!Array.isArray(inc)) throw new Error("bad file");
+      const str = v => v == null ? "" : String(v).slice(0, 300), all = store.get(LOG_KEY, []), ids = new Set(all.map(c => c.id)); let n = 0;
+      for (const c of inc) { if (!c || !c.id || ids.has(String(c.id))) continue;
+        all.push({ id: str(c.id), date: str(c.date).slice(0, 10), time: str(c.time).slice(0, 5), beach: str(c.beach), fish: str(c.fish), lure: str(c.lure), len: str(c.len), dist: str(c.dist), hours: str(c.hours),
+          released: !!c.released, notes: str(c.notes), cond: c.cond && typeof c.cond === "object" ? c.cond : undefined, snap: c.snap && typeof c.snap === "object" ? c.snap : undefined }); n++; }
+      all.sort((a, c) => (a.date + a.time).localeCompare(c.date + c.time)); store.set(LOG_KEY, all); keepLog(); renderLog();
+      logMsg(`שוחזרו ${n} רשומות חדשות (${inc.length - n} כבר היו ביומן).`);
+    } catch (err) { logMsg("הקובץ לא נקרא — צריך קובץ גיבוי של מצפן הדייג (JSON).", "is-warn"); }
+    e.target.value = "";
   };
 }
 
@@ -916,6 +1127,7 @@ function setupLureNavigation() {
 
 /* ---------- start ---------- */
 async function load(force) {
+  clampDays();
   $("#loadState").hidden = false; $("#loadState").textContent = "טוען תחזית…";
   try {
     FC = await FORECAST.loadForecast(GROUPS, force); cache.clear();
@@ -927,7 +1139,10 @@ async function load(force) {
     if (window.FISHING_DASHBOARD) FISHING_DASHBOARD.fail();
   }
 }
+// v3.7: a day that has passed (the app was left open or resumed after midnight) moves to today
+function clampDays() { const t = todayKey(); if (state.day && state.day < t) state.day = t; if (state.rankDay && state.rankDay < t) state.rankDay = t; }
 function init() {
+  state.beach = beachByName(state.beach).name; // a stored beach that no longer exists falls back to a real one
   $$(".tabbar button").forEach(b => b.onclick = () => setTab(b.dataset.go));
   fillPicker(); setupLog(); setTab(state.tab); setupLureNavigation();
   $$("[data-dashboard-nav]").forEach(bt => {
@@ -944,7 +1159,8 @@ function init() {
   const expanded = $(".dashboard-details"); if(expanded) expanded.addEventListener("toggle", () => { if(expanded.open && spotMap) requestAnimationFrame(() => spotMap.invalidateSize()); });
   $("#refresh").onclick = () => load(true);
   load(false);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && FC && Date.now() - FC.at > 30 * 60 * 1000) load(true); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; const stale = state.day && state.day < todayKey(); clampDays();
+    if (FC && Date.now() - FC.at > 30 * 60 * 1000) load(true); else if (stale && FC) { cache.clear(); renderToday(); if (state.tab === "rank") renderRank(); } });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

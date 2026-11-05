@@ -239,3 +239,15 @@ body{background:var(--ground);padding-bottom:84px}
 .rg-t{font-size:11px;fill:var(--ink);font-family:inherit;direction:rtl}
 .cast-plan,.seabed{font-size:13px;line-height:1.5;margin:4px 0}
 .sol-major b{color:var(--brand,#1f7a8c)}
+/* v3.7: trip card, emergency, catch log extras */
+.trip-card{margin:12px 0;padding:12px 14px}.trip-card h2{font-size:17px;margin:0 0 6px}
+.trip-lines{list-style:none;margin:0 0 8px;padding:0;font-size:14px;line-height:1.5}.trip-lines li{padding:3px 0;border-bottom:1px dashed var(--line)}.trip-lines li:last-child{border-bottom:0}
+.trip-lines .is-warn{color:#a84c35}.trip-lines .is-ok{color:var(--brand,#1f7a8c)}
+.trip-actions{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}.trip-actions button{flex:1 1 140px;min-height:40px;border-radius:var(--pill,999px);border:1px solid var(--line);background:var(--surface,#fff);font:inherit;font-weight:700;cursor:pointer}
+.sos summary{cursor:pointer;font-weight:700;color:#a84c35}.sos-nums{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.sos-n{display:inline-flex;gap:6px;align-items:baseline;padding:6px 10px;border-radius:var(--r-sm,8px);background:#fbe9e4;color:#7a2e1c;text-decoration:none;font-size:14px}.sos-n b{direction:ltr;unicode-bidi:isolate}
+.log-msg{min-height:1.2em;font-size:14px;line-height:1.5;margin:6px 0}.log-msg.is-warn{color:#a84c35;font-weight:700}
+.log-form .chk{display:flex;align-items:center;gap:6px}.log-form .chk input{width:auto}
+.file-btn{display:inline-flex;align-items:center;padding:0 14px;min-height:40px;border:1px solid var(--line);border-radius:var(--pill,999px);cursor:pointer;font-weight:700;font-size:14px}
+.rel-tag{font-style:normal;font-size:12px;padding:1px 6px;border-radius:6px;background:#e6f2ef;color:#1f6b5c}
+.log-list .trip{opacity:.8}.log-list .log-sum{font-size:13px;color:var(--muted);list-style:none}

@@ -2,29 +2,34 @@
    מקור חי: Open-Meteo (מזג אוויר + ים: גלים, טמפ' מים, גובה פני הים לגאות, זרם).
    שכבת דיוק: data/sg.json — קובץ יומי מ-StormGlass (גלים, רוח, משקעים וטמפ' מים) כשהוא עדכני; הלחץ נשאר מ-Open-Meteo. */
 (function () {
-const CACHE_KEY = "compass-forecast-v5", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
+const CACHE_KEY = "compass-forecast-v6", CACHE_MS = 30 * 60 * 1000, SG_MAX_AGE = 72 * 36e5;
 const W_URL = "https://api.open-meteo.com/v1/forecast", M_URL = "https://marine-api.open-meteo.com/v1/marine";
 const list = a => a.map(x => x.toFixed(3)).join(",");
+let marineDown = false;
 
-async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
+// v3.7: an offline copy served by the service worker carries x-stored = when it was fetched, so old data is not shown as fresh
+let dataAt = null;
+async function getJSON(url, stamp) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); if (stamp) { const d = +r.headers.get("x-stored"); dataAt = d > 0 ? d : null; } return r.json(); }
 
 async function fetchOpenMeteo(groups) {
   const ids = Object.keys(groups), sea = ids.filter(id => groups[id].water !== "lake");
   const wq = `${W_URL}?latitude=${list(ids.map(i => groups[i].lat))}&longitude=${list(ids.map(i => groups[i].lon))}` +
-    "&hourly=pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability,precipitation,visibility,temperature_2m,cloud_cover&past_days=1&forecast_days=8&timezone=GMT";
+    "&hourly=pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation_probability,precipitation,visibility,temperature_2m,cloud_cover,weather_code,cape&past_days=1&forecast_days=8&timezone=GMT";
   const mq = `${M_URL}?latitude=${list(sea.map(i => groups[i].mlat))}&longitude=${list(sea.map(i => groups[i].mlon))}` +
     "&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature,sea_level_height_msl,ocean_current_velocity,ocean_current_direction,wave_direction,swell_wave_direction&past_days=1&forecast_days=8&timezone=GMT";
   // boat mode: open sea ~11 km west of each Mediterranean data point
   const med = ids.filter(i => groups[i].water === "med");
   const oq = `${M_URL}?latitude=${list(med.map(i => groups[i].lat))}&longitude=${list(med.map(i => groups[i].lon - 0.12))}` +
     "&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature&past_days=1&forecast_days=8&timezone=GMT";
-  const [w, m, o] = await Promise.all([getJSON(wq), getJSON(mq), getJSON(oq).catch(() => null)]);
-  const W = Array.isArray(w) ? w : [w], M = Array.isArray(m) ? m : [m], O = o ? (Array.isArray(o) ? o : [o]) : null;
+  // v3.7: a marine API failure must not take the weather (and the Kinneret) down with it — marine fields stay empty
+  const [w, m, o] = await Promise.all([getJSON(wq, true), getJSON(mq).catch(() => null), getJSON(oq).catch(() => null)]);
+  marineDown = !m;
+  const W = Array.isArray(w) ? w : [w], M = m ? (Array.isArray(m) ? m : [m]) : [], O = o ? (Array.isArray(o) ? o : [o]) : null;
   const out = {};
   ids.forEach((id, i) => {
-    const h = W[i].hourly, mi = sea.indexOf(id), mh = mi >= 0 ? M[mi].hourly : null;
+    const h = W[i].hourly, mi = sea.indexOf(id), mh = mi >= 0 && M[mi] ? M[mi].hourly : null;
     out[id] = h.time.map((t, k) => ({
-      T: Date.parse(t + "Z"), p: h.pressure_msl[k], wind: h.wind_speed_10m[k], dir: h.wind_direction_10m[k], gust: h.wind_gusts_10m[k], rain: h.precipitation_probability[k], mm: h.precipitation[k], vis: h.visibility[k], air: h.temperature_2m[k], cloud: h.cloud_cover ? h.cloud_cover[k] : null,
+      T: Date.parse(t + "Z"), p: h.pressure_msl[k], wind: h.wind_speed_10m[k], dir: h.wind_direction_10m[k], gust: h.wind_gusts_10m[k], rain: h.precipitation_probability[k], mm: h.precipitation[k], vis: h.visibility[k], air: h.temperature_2m[k], cloud: h.cloud_cover ? h.cloud_cover[k] : null, wcode: h.weather_code ? h.weather_code[k] : null, cape: h.cape ? h.cape[k] : null,
       wave: mh && mh.wave_height[k] != null ? mh.wave_height[k] * 100 : null, swell: mh && mh.swell_wave_height[k] != null ? mh.swell_wave_height[k] * 100 : null,
       per: mh ? mh.wave_period[k] : null, sst: mh ? mh.sea_surface_temperature[k] : null, sl: mh ? mh.sea_level_height_msl[k] : null,
       cur: mh && mh.ocean_current_velocity ? mh.ocean_current_velocity[k] : null, curDir: mh && mh.ocean_current_direction ? mh.ocean_current_direction[k] : null,
@@ -44,7 +49,7 @@ function overlaySG(rows, sg) {
   let n = 0;
   for (const r of rows) {
     const h = byT.get(r.T); if (!h) continue;
-    r.wave = h[1]; r.swell = h[2]; r.per = h[3]; r.wind = h[4]; r.dir = h[5]; if (h[7]) r.sst = h[7]; r.rain = h[8]; r.src = "sg"; n++;
+    r.wave = h[1]; r.swell = h[2]; r.per = h[3]; r.wind = h[4]; r.dir = h[5]; if (r.gust != null && r.gust < r.wind) r.gust = r.wind; if (h[7]) r.sst = h[7]; r.rain = h[8]; r.src = "sg"; n++;
   }
   return n > 0;
 }
@@ -61,7 +66,7 @@ async function loadForecast(groups, force) {
   let official = null; try { official = await getJSON("data/official.json?t=" + Math.floor(Date.now() / 6e5)); } catch (e) { /* not available */ }
   // v3.6: satellite SST fronts and chlorophyll per group (daily file built by build_ocean.js from NOAA ERDDAP)
   let ocean = null; try { ocean = await getJSON("data/ocean.json?t=" + Math.floor(Date.now() / 6e5)); } catch (e) { /* not available */ }
-  const res = { at: Date.now(), data, sgGroups, sgAt: sg ? sg.generated : null, official, ocean };
+  const res = { at: dataAt && dataAt < Date.now() ? dataAt : Date.now(), fetchedAt: Date.now(), data, sgGroups, sgAt: sg ? sg.generated : null, official, ocean, marineDown };
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(res)); } catch (e) { /* storage full or blocked */ }
   return res;
 }
