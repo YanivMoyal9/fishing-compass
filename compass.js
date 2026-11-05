@@ -90,6 +90,25 @@ function featuresHtml(b) {
    Our fishing-knowledge matrix (docs/strike-point/04 §2, §6, §7): sea state × wind, light, pressure trend, after a storm,
    onshore / offshore wind, warm water in winter, moon. */
 const DIRDIFF = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
+// v3.6: satellite ocean signals for the beach's data group (data/ocean.json): SST fronts, chlorophyll level and colour edges, SST anomaly.
+// Shore anglers get a front or an edge only when it is close (≤ 12 km); in boat mode up to 30 km. Images older than 7 days are ignored.
+function oceanAdvice(b) {
+  const O = FC && FC.ocean, o = O && O.g && O.g[b.group]; if (!o) return [];
+  const boat = state.boat && canBoat(b), near = boat ? 30 : 12, out = [];
+  const fresh = d => d && Date.now() - Date.parse(d) < 7 * 864e5, dm = d => d.slice(8, 10).replace(/^0/, "") + "/" + d.slice(5, 7).replace(/^0/, "");
+  const sstDate = O.sstDate, chlDate = o.chlDate || O.chlDate;
+  if (fresh(sstDate) && o.front && o.front.dist_km <= near) {
+    const f = o.front, dT = f.sstWarmSide != null && f.sstColdSide != null ? Math.abs(f.sstWarmSide - f.sstColdSide).toFixed(1) : null;
+    out.push(["🌡️", `חזית טמפרטורה${f.strong ? " חדה" : ""} ~${Math.round(f.dist_km)} ק״מ ל${DIR8(f.bearing_deg)}${dT ? ` (הפרש ~${dT}° בין המים)` : ""} — דגי פיתיון וטורפים פלגיים (פלמידה, טונית, אינטיאס) מסיירים לאורך קווים כאלה${f.dist_km > 12 ? "; רלוונטי לסירה" : ""} · לוויין ${dm(sstDate)}`]);
+  }
+  if (fresh(sstDate) && o.sstA != null && Math.abs(o.sstA) >= 1.5) out.push(["🌡️", `המים ${o.sstA > 0 ? "חמים" : "קרים"} ב-${Math.abs(o.sstA).toFixed(1)}° מהרגיל לעונה — ${o.sstA > 0 ? "מינים של מים חמים נשארים מאוחר יותר" : "המעבר לדגי החורף מוקדם"} · לוויין`]);
+  if (fresh(chlDate)) {
+    if (o.chlLvl === "high") out.push(["🟢", `מים ירוקים ליד החוף (כלורופיל ${o.chl.toFixed(1)} מ״ג/מ״ק): הרבה מזון ודגיגים, אבל פחות צלול — צבעים בולטים; אחרי סערה זו בעיקר עכירות · לוויין ${dm(chlDate)}`]);
+    else if (o.chlLvl === "low") out.push(["🔵", `מים כחולים ודלים (כלורופיל ${o.chl.toFixed(2)}): צלול מאוד — חוט דק, דמויים טבעיים ושעות אור עמום · לוויין ${dm(chlDate)}`]);
+    const e = o.chlEdge; if (e && e.dist_km <= near) out.push(["🟩", `קו צבע ירוק–כחול ~${Math.round(e.dist_km)} ק״מ ל${DIR8(e.bearing_deg)} — דגי פיתיון מתרכזים בשוליו, ואחריהם טורפים${e.dist_km > 12 ? "; רלוונטי לסירה" : ""} · לוויין ${dm(chlDate)}`]);
+  }
+  return out;
+}
 function adviceFor(s, b) {
   const x = s.x, out = [], lake = b.water === "lake", w = x.waveMax, wind = x.wind;
   if (!lake && w != null) {
@@ -122,8 +141,16 @@ function adviceFor(s, b) {
   if (mm24 >= 10) out.push(["🟤", `${Math.round(mm24)} מ״מ גשם ב-24 השעות שלפני — מים עכורים ליד החוף ובשפכים: צבעים בולטים`]);
   const mo = +state.day.slice(5, 7);
   if (f && f.tags.includes("מים חמים בחורף") && [11, 12, 1, 2, 3].includes(mo)) out.push(["🌡️", "חורף — המים החמים בקטע הזה מרכזים טורפים (ראו נקודות בחוף)"]);
+  // v3.6: jig weight for this beach's depth at a 50 m cast, the current, wind and waves; swell direction against the shore
+  if (!lake) { const prof = E.depthProfile(b.depth), z50 = prof ? E.depthAt(prof, 50) : null, jw = E.jigWeight(z50, x.cur, x.windMax, w);
+    out.push(["⚖️", `משקל ג׳יג / מתכת: ${jw[0]}–${jw[1]} ג׳${z50 != null ? ` (עומק ~${fmtNum(z50, 1)} מ׳ בהטלה של 50 מ׳)` : ""}${x.cur > 1 || x.windMax > 25 ? " — כבד יותר בגלל ה" + [x.cur > 1 ? "זרם" : "", x.windMax > 25 ? "רוח" : ""].filter(Boolean).join(" וה") : ""}`]);
+    const az = f && f.az != null ? f.az : b.water === "med" ? 285 : null, sw = mid ? E.swellAdvice(mid.sdir != null && mid.swell >= 30 ? mid.sdir : mid.wdir, az, mid.wave, mid.per, f && f.tags.some(t => /שובר|מזח/.test(t))) : null;
+    if (sw) out.push(["↗️", sw.text]); }
+  if (!lake) out.push(...oceanAdvice(b));
   if (s.id === "evening" && typeof SunCalc !== "undefined") { const ill = SunCalc.getMoonIllumination(new Date(x.T1)).fraction;
-    if (ill >= 0.85) out.push(["🌕", "ירח כמעט מלא — יותר פעילות בלילה: קלאמרי, וברקודה מתחת לאורות"]);
+    const night = rows.filter(r => r.T >= x.T1 && r.T < x.T1 + 4 * HOUR_MS && r.cloud != null), cloud = night.length ? night.reduce((a, r) => a + r.cloud, 0) / night.length : null, lit = E.moonLight(ill, cloud);
+    if (ill >= 0.85 && lit >= 0.6) out.push(["🌕", "ירח כמעט מלא — יותר פעילות בלילה: קלאמרי, וברקודה מתחת לאורות"]);
+    else if (ill >= 0.6 && cloud >= 70) out.push(["☁️", `ירח ${Math.round(ill * 100)}% אבל מעונן (${Math.round(cloud)}%) — הלילה יהיה חשוך: אורות המזח והנמל חשובים יותר, אגי זוהר`]);
     else if (ill <= 0.15) out.push(["🌑", "ליל מולד חשוך — השחר והדמדומים חשובים יותר מהלילה"]); }
   if (f && f.tags.some(t => /שובר|שפך|סלעים|מזח/.test(t))) out.push(["📍", `במקום: ${f.tags.filter(t => /שובר|שפך|סלעים|מזח|לגונה|מפרצון/.test(t)).slice(0, 3).join(", ")} — קצה המבנה, פתחים ותעלות הם הנקודות החמות`]);
   return out;
@@ -175,7 +202,7 @@ function sessionCard(s, b) {
     ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
     ${whyHereHtml(s, b, past)}
-    ${(() => { const adv = adviceFor(s, b); return adv.length ? `<details class="advice" ${past ? "" : "open"}><summary>מה עושים בתנאים האלה</summary><ul>${adv.map(([i, t]) => `<li><span aria-hidden="true">${i}</span> ${esc(t)}</li>`).join("")}</ul></details>` : ""; })()}
+    ${(() => { const adv = adviceFor(s, b); return adv.length ? `<details class="advice" ${past ? "" : "open"}><summary>מה עושים בתנאים האלה</summary><ul>${adv.map(([i, t]) => `<li><span aria-hidden="true">${i}</span> ${ltrNums(esc(t))}</li>`).join("")}</ul></details>` : ""; })()}
     <dl class="sess-cond">
       ${x.waveMax != null ? `<div><dt>גל</dt><dd>${fmtNum(x.wave)}–${fmtNum(x.waveMax)} ס״מ</dd></div>` : ""}
       <div><dt>רוח</dt><dd>${fmtNum(x.wind)} קמ״ש</dd></div>
@@ -213,6 +240,13 @@ function navHtml(b) {
     (b.depth ? `<p class="depth">🌊 עומק: ${b.depth.to5 ? `5 מ׳ במרחק ~${b.depth.to5} מ׳` : "—"}${b.depth.to10 ? ` · 10 מ׳ במרחק ~${b.depth.to10} מ׳` : ""}${b.depth.at300 != null ? ` · ב-300 מ׳: ${b.depth.at300} מ׳` : ""} <small>(EMODnet, תא ~115 מ׳)</small></p>` : "") +
     (b.zone ? `<p class="zone">🌡️ ${esc(b.zone)}</p>` : "");
 }
+// v3.6: solunar periods of the day (weak evidence: information only, not in the score)
+function solunarHtml(b) {
+  if (typeof SunCalc === "undefined" || !E.solunar) return "";
+  const p = E.solunar(state.day, b.lat, b.lon); if (!p.length) return "";
+  const t = q => `${E.hm(E.il(q.from).hf)}–${E.hm(E.il(q.to).hf)}`;
+  return `<p>🌙 שעות ירח (סולונאר): ${p.map(q => `<span class="sol-${q.k}">${q.k === "major" ? "<b>עיקרית</b>" : "משנית"} <bdi dir="ltr">${t(q)}</bdi> <small>(${q.what})</small></span>`).join(" · ")}${evChip("w")}</p>`;
+}
 /* ---------- beach header: name, features, actions, key times and conditions as tiles, details folded ---------- */
 function beachHeadHtml(b, r, gold, best, boat) {
   const ll = `${b.lat},${b.lon}`, f = (window.BEACH_FEATURES || {})[b.name];
@@ -236,7 +270,8 @@ function beachHeadHtml(b, r, gold, best, boat) {
   const more = [
     b.depth ? `<p>🌊 עומק: ${b.depth.to5 ? `5 מ׳ במרחק ~${b.depth.to5} מ׳` : "—"}${b.depth.to10 ? ` · 10 מ׳ במרחק ~${b.depth.to10} מ׳` : ""}${b.depth.at300 != null ? ` · ב-300 מ׳: ${b.depth.at300} מ׳` : ""} <small class="hint">(EMODnet, תא ~115 מ׳)</small></p>` : "",
     b.zone ? `<p>🌡️ ${esc(b.zone)}</p>` : "",
-    `<p>🕯️ אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>`
+    `<p>🕯️ אור ראשון ${E.hm(r.win.dawn)} · זריחה ${E.hm(r.win.sunrise)} · שקיעה ${E.hm(r.win.sunset)} · אור אחרון ${E.hm(r.win.dusk)}${r.tides.length ? " · " + r.tides.map(t => `${t.type === "high" ? "גאות" : "שפל"} ${E.hm(E.il(t.T).hf)}`).join(" · ") : ""}</p>`,
+    solunarHtml(b)
   ].join("");
   return `<div class="bh-top"><div><h2>${esc(b.name)}${vipTag(b)}</h2><p class="bh-sub">${esc(b.region)} · ${esc(TYPE_NAMES[b.type] || "")}</p></div></div>
     ${b.note ? `<p class="bh-note">${esc(b.note)}</p>` : ""}
@@ -268,7 +303,8 @@ function renderToday() {
     return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
   const src = FC.sgGroups.includes(b.group) ? "StormGlass + Open-Meteo" : "Open-Meteo";
-  $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`;
+  $("#srcNote").textContent = `מקור הנתונים לחוף הזה: ${src} · עודכן ${new Date(FC.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}` +
+    (FC.ocean && FC.ocean.g && FC.ocean.g[b.group] ? " · חזיתות וכלורופיל מלוויין: NASA JPL MUR SST ו-Copernicus Sentinel-3 OLCI, דרך NOAA CoastWatch" : "");
   renderSpots(b);
   if (window.FISHING_DASHBOARD) {
     $("#fishingDashboard").setAttribute("aria-busy", "false");
@@ -310,12 +346,17 @@ async function renderSpots(b) {
   const top = ranked.slice(0, 3), pos = new Map(top.map((r, k) => [r.i, k + 1])), anyUp = adj.some(a => a.d > 0);
   const vs = ranked.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs), t = v => hi > lo ? (v - lo) / (hi - lo) : 0.5; // stretched per fish so differences show
   const fill = v => `hsl(${Math.round(55 - 55 * t(v))} 90% ${Math.round(58 - 10 * t(v))}%)`; // yellow → red = more suitable
-  const upTxt = a => a && a.d ? `${a.d > 0 ? "↑" : "↓"} היום ${a.d > 0 ? "+" : ""}${a.d}: ${a.why.map(w => esc(w.slice(2))).join(" · ")}` : "";
+  // v3.6: how deep it is over this fish's casting range in this strip (and, when data/seabed.js is loaded, the seabed)
+  const tsp = SPECIES.find(q => q.id === sid), sb = window.SEABED && window.SEABED[id];
+  const stripExtra = (s, i) => { const plan = tsp ? castPlanTxt(tsp, E.depthProfile(s.z200 != null ? { to5: s.to5, z200: s.z200 } : { to5: s.to5 }), b.type, "ברצועה") : "";
+    const bed = sb && sb.s && sb.s[i] ? seabedTxt(sb.s[i]) : "";
+    return (plan ? `<p class="cast-plan">📏 ${plan}</p>` : "") + (bed ? `<p class="seabed">🪨 ${bed}</p>` : ""); };
+  const upTxt = a => a && a.d ?`${a.d > 0 ? "↑" : "↓"} היום ${a.d > 0 ? "+" : ""}${a.d}: ${a.why.map(w => esc(w.slice(2))).join(" · ")}` : "";
   const card = (r, n) => { const s = r.s, ll = `${s.lat},${s.lon}`;
     return `<li class="spot ${E.level(r.v).c}"><header><span class="rk">${n}</span><b>${esc(s.place)}</b><span class="rv">${r.v}</span></header>
       ${r.a && r.a.d ? `<p class="up-today${r.a.d < 0 ? " is-down" : ""}">${upTxt(r.a)}</p>` : ""}
       ${s.outside ? `<p class="caution">מחוץ לחוף חשמל — דרומית לתחנת הכוח. בדקו גישה ואיסורים במקום.</p>` : ""}${s.shelter ? `<p class="caution">מים מוגנים מאחורי שובר או במעגן — בדקו שמותר לדוג במקום.</p>` : ""}
-      <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>
+      <p>${s.desc.map(esc).join(" · ")}${s.partial ? " · <i>נתונים חלקיים</i>" : ""}</p>${stripExtra(s, r.i)}
       <p class="spot-ll">📍 נקודת עמידה (קו המים): <bdi dir="ltr">${fmtLL(s)}</bdi> <button type="button" class="copy-ll" data-ll="${fmtLL(s)}">העתקה</button></p>
       <p class="nav-links"><a href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">Waze</a> · <a href="https://www.google.com/maps/search/?api=1&query=${ll}" target="_blank" rel="noopener">Google Maps</a> · <button type="button" class="show-on-map" data-i="${r.i}">הצגה במפה</button></p></li>`; };
   el.hidden = false;
@@ -329,7 +370,7 @@ async function renderSpots(b) {
     <div id="spotPicked"></div>
     <ol class="spot-list">${top.map((r, k) => card(r, k + 1)).join("")}</ol>
     <p class="spot-look">👀 <b>בשטח, חפשו:</b> ${esc(sp.look)}</p>
-    <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>נקודת העמידה היא קו המים בתמונות הלוויין (דיוק של כ-30 מ׳; קו המים זז עם הגלים והעונה). הרצועה הצבועה מגיעה עד כ-220 מ׳ לתוך הים. תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p></details>`;
+    <details class="about"><summary>איך זה מחושב?</summary><p>${esc(z.method)}</p><p>נקודת העמידה היא קו המים בתמונות הלוויין (דיוק של כ-30 מ׳; קו המים זז עם הגלים והעונה). הרצועה הצבועה מגיעה עד כ-220 מ׳ לתוך הים. תמונות לוויין: ${z.scenes.map(d => d.split("-").reverse().join("/")).join(", ")} · טמפ׳: Landsat ${z.landsat.map(d => d.split("-").reverse().join("/")).join(", ")} · עודכן ${z.generated.split("-").reverse().join("/")}. רשמו ביומן את המרחק מהחוף ואיפה דגתם, כדי שנוכל לכייל את הדירוג לפי תפיסות אמיתיות.</p>${sb ? `<p>סוג הקרקעית: מפת בתי הגידול של חקר ימים ואגמים לישראל (ISRAMARBIO: קנרי, תום ולובינבסקי; המכון הגיאולוגי; משרד האנרגיה), נדגם ב-7 נקודות עד 300 מ׳ מהחוף בכל רצועה. המפה מ-2015, ולכן שוברים חדשים לא מופיעים בה.</p>` : ""}<p>עומק בטווח ההטלה: קו ישר בין נקודות העומק של EMODnet (רשת של ~115 מ׳), הערכה גסה.</p></details>`;
   const pick = i => { const s = z.strips[i];
     $("#spotPicked").innerHTML = s.ok ? `<ol class="spot-list picked">${card({ s, i, v: vv[i], a: adj[i] }, "•")}</ol>` : `<p class="hint">${esc(s.place)}: ${esc(s.reason)}</p>`; wire(); };
   const wire = () => {
@@ -429,6 +470,56 @@ const SIZE_UNIT = { TL: "אורך כולל", FL: "עד מזלג הזנב", SL: "
 const bodyTxt = sp => { const b = sp.body; if (!b || !b.max) return ""; return [b.common ? `נפוץ ~${b.common}` : "", `עד ${b.max} ס״מ`, b.kg ? `${b.kg < 1 ? Math.round(b.kg * 1000) + " ג׳" : (+b.kg.toFixed(1)) + " ק״ג"}` : ""].filter(Boolean).join(" · "); };
 const invTag = sp => sp.invasive ? ` <em class="inv-tag" title="מין פולש">פולש</em>` : "";
 const baitsFor = id => (window.BAITS || []).filter(b => b.fish.includes(id));
+// v3.6: rig drawing from the rig numbers (cm). running = sinker slides on the main line, leader to the hook on the bottom;
+// paternoster = hooks on short snoods above the sinker; popup = the bait floats up off the bottom on a long leader.
+const RIG_NAMES = { running: "משקולת רצה (קרקעית)", paternoster: "פטרנוסטר — קרסים מעל המשקולת", popup: "פופ-אפ — הפיתיון מרחף מעל הקרקעית" };
+const ltrIso = s => "⁦" + s + "⁩"; // number ranges inside right-to-left SVG text keep their order
+function rigSvg(r) {
+  const hooks = (r.hooks || []).filter(h => h > 0); if (!hooks.length || !RIG_NAMES[r.t]) return "";
+  const hook = (x, y) => `<path d="M${x} ${y} v7 a4 4 0 0 1 -8 0" class="rg-hook"/>`, sinker = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="6" ry="9" class="rg-sink"/>`;
+  let g = "";
+  if (r.t === "running") {
+    const max = Math.max(...hooks, r.leader || 0, 40), X = cm => 92 + cm / max * 190, by = 112;
+    g = `<path d="M14 18 L64 ${by - 4}" class="rg-line"/>${sinker(64, by - 10)}<circle cx="86" cy="${by}" r="3.5" class="rg-swv"/><path d="M86 ${by} H${X(Math.max(...hooks))}" class="rg-lead"/>` +
+      hooks.map(h => hook(X(h), by) + `<text x="${X(h)}" y="${by + 26}" class="rg-t" text-anchor="middle">${h} ס״מ</text>`).join("") +
+      `<text x="64" y="${by - 26}" class="rg-t" text-anchor="middle">${r.g ? ltrIso(r.g) + " ג׳" : "משקולת"}</text><path d="M4 ${by + 10} H296" class="rg-bed"/>`;
+  } else {
+    const max = Math.max(...hooks, 40) * 1.08, by = 120, Y = cm => by - 6 - cm / max * 100, x0 = r.t === "popup" ? 120 : 150;
+    g = `<path d="M${x0} 8 V${by - 8}" class="${r.t === "popup" ? "rg-lead" : "rg-line"}"/>${sinker(x0, by - 4)}<path d="M4 ${by + 6} H296" class="rg-bed"/>` +
+      (r.t === "popup" ? `<circle cx="${x0}" cy="${Y(Math.max(...hooks)) - 10}" r="6" class="rg-float"/>` : "") +
+      hooks.map(h => { const y = Y(h), sx = x0 + 14 + (r.snood || 8) * 2.2; return `<path d="M${x0} ${y} L${sx} ${y + 4}" class="rg-lead"/>${hook(sx, y + 4)}<text x="${x0 - 8}" y="${y + 4}" class="rg-t" text-anchor="start">${h} ס״מ</text>`; }).join("") +
+      `<text x="${x0 + 14}" y="${by + 1}" class="rg-t" text-anchor="end">${r.g ? ltrIso(r.g) + " ג׳" : ""}</text>`;
+  }
+  return `<figure class="rig"><svg viewBox="0 0 300 150" role="img" aria-label="${esc(RIG_NAMES[r.t])}">${g}</svg><figcaption>${esc(RIG_NAMES[r.t])}${r.leader ? ` · ליידר ${r.leader} ס״מ` : ""}${r.snood ? ` · זרועות ${r.snood} ס״מ` : ""} · ${r.t === "running" ? "המספרים: מרחק הקרס מהמשקולת" : "המספרים: גובה הקרס מעל המשקולת"}</figcaption></figure>`;
+}
+// v3.6: seabed of a strip (data/seabed.js): what it means for the fish and for the lure
+const SEABED_TXT = { sand: ["חול", "דניס, מליטה וטרכינוטוס; ג׳יג ובובות על הקרקעית בלי חשש להיתקע"],
+  mud: ["בוץ / חול דק", "מוסר, שפמנון וטריגון; פיתיון על הקרקעית, ג׳יג נשאר נקי"],
+  coarse: ["חצץ וחול גס", "מליטה, סרגוס ודניס; קרקעית נקייה יחסית"],
+  mixed: ["חול וסלע", "קצה הסלע הוא הנקודה החמה: סרגוס, לוקוס ולברק; לעבוד על החול שליד הסלע"],
+  rock: ["סלע", "דגי סלע: לוקוס, סרגוס, סלפה ותמנון; דמויים נתקעים — קרס בודד, פיתיון שטח או מצוף, משקולת זולה"],
+  seagrass: ["עשב ים", "דיונונים, תמנונים וסרגוסים; לעבוד מעל העשב ולא בתוכו"] };
+const seabedTxt = q => { const t = SEABED_TXT[q.c]; if (!t) return ""; return `קרקעית: <b>${t[0]}</b>${q.rock150 && q.c === "sand" ? " · יש סלע בטווח 150 מ׳" : ""} — ${t[1]}`; };
+// v3.6: gear table, rig and the cast plan at the chosen beach
+// numbers, ranges and hook sizes (#6, 2/0) keep left-to-right order inside Hebrew text (input already escaped)
+const ltrNums = h => h.replace(/[#\d][\d.\/#]*(?:\s*[–-]\s*[#\d][\d.\/#]*)?/g, m => `<bdi dir="ltr">${m}</bdi>`);
+function castPlanTxt(sp, prof, type, where) {
+  const c = E.castPlan(sp, prof, type); if (!c) return "";
+  const z0 = Math.max(0.5, c.z[0]), z1 = Math.max(0.5, c.z[1]), z = `<bdi dir="ltr">~${z0 === z1 ? z0 : `${z0}–${z1}`}</bdi>`;
+  let t = `${where}: בהטלה של <bdi dir="ltr">${c.cast[0]}–${c.cast[1]}</bdi> מ׳ העומק ${z} מ׳.`;
+  if (c.need) t += c.need.structure ? ` ה${esc(sp.name)} חי בדרך כלל מ-${c.need.z} מ׳ — מקצה השובר או המזח המים עמוקים יותר מאשר מהחוף.`
+    : c.need.reach ? ` ה${esc(sp.name)} חי בדרך כלל מ-${c.need.z} מ׳ — העומק הזה מתחיל רק ב-~${c.need.dist} מ׳: הטלה ארוכה, או שובר ומזח.`
+    : ` ה${esc(sp.name)} חי בדרך כלל מ-${c.need.z} מ׳ — מחוץ לטווח הטלה מהחוף הזה: ראש מזח, קצה שובר עמוק או סירה.`;
+  return t;
+}
+function gearHtml(sp, b) {
+  const g = sp.gear; if (!g) return "";
+  const rows = [["חכה וגלגלת", g.rod], ["חוט ראשי", g.line], ["ליידר", g.leader], ["קרסים", g.hooks], ["משקולת", g.sinker],
+    g.cast ? ["טווח הטלה", `${g.cast[0]}–${g.cast[1]} מ׳`] : null, g.depth ? ["עומק שבו הוא חי", `${g.depth[0]}–${g.depth[1]} מ׳`] : null].filter(r => r && r[1]);
+  const plan = b && b.water !== "lake" && sp.waters.includes(b.water) ? castPlanTxt(sp, E.depthProfile(b.depth), b.type, `ב${esc(b.name)}`) : "";
+  return `<section class="gear"><h4>🎣 ציוד וטווח הטלה</h4><dl class="gear-tbl">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${ltrNums(esc(v))}</dd></div>`).join("")}</dl>
+    ${g.rig ? rigSvg(g.rig) : ""}${plan ? `<p class="cast-plan">📏 ${plan} <small class="hint">(עומק לפי EMODnet, רשת של ~115 מ׳ — הערכה גסה)</small></p>` : ""}</section>`;
+}
 function fishRow({ sp, peak, tempNote, temp }, month, water) {
   const cal = MONTHS.map((m, i) => `<i class="${sp.p && sp.p.includes(i + 1) ? "pk" : sp.m.includes(i + 1) ? "in" : ""} ${i + 1 === month ? "now" : ""}" title="${m}"></i>`).join("");
   const lures = [...sp.lures, ...(sp.lures2 || [])].filter(c => c !== "BAIT").map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ");
@@ -566,8 +657,9 @@ function fishCard(id) {
     <div class="fish-cal" aria-label="עונה">${cal}</div><p class="hint">כהה = שיא · בהיר = בעונה · מסגרת = החודש</p>
     <dl class="fish-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${/^[\d–\-°. ]+$/.test(v) ? `<bdi dir="ltr">${esc(v)}</bdi>` : esc(v)}</dd></div>`).join("")}</dl>
     ${(() => { const kit = lureKitHtml(sp); return kit ? `<section class="kit"><h4>🎯 הדמויים שמתאימים ל${esc(sp.name)}</h4>${sp.bait || sp.lures.includes("BAIT") ? `<p class="hint">נתפס בעיקר בפיתיון טבעי — הדמויים כאן הם אפשרות משלימה.</p>` : ""}<div class="kit-grid">${kit}</div></section>` : ""; })()}
+    ${gearHtml(sp, b)}
     ${FISH_SECTIONS.map(([n]) => sec(n)).join("")}
-    <p class="hint">${info.src === "own" ? "פרופיל שכתבנו מהמחקר שלנו." : "סיכום במילים שלנו מתיקי הדגים שאספנו ומהמחקר על התקנות."} העונה והשעות לפי נתוני האפליקציה.${sp.t4 || sp.body ? " טמפ׳ המים, הגודל וגודלי הקרס לפי נתוני Hooked." : ""}</p>
+    <p class="hint">${info.src === "own" ? "פרופיל שכתבנו מהמחקר שלנו." : "סיכום במילים שלנו מתיקי הדגים שאספנו ומהמחקר על התקנות."} העונה והשעות לפי נתוני האפליקציה.${sp.t4 || sp.body ? " טמפ׳ המים, הגודל, גודלי הקרס ומספרי הציוד והריג לפי נתוני Hooked." : ""}</p>
     <div class="dlg-actions">${sp.caution || (sp.protectedIn && sp.protectedIn.length === sp.waters.length) ? "" : `<button type="button" id="fishWhere" class="primary">איפה לדוג אותו היום</button>`}<button value="close">סגירה</button></div></form>`;
   dlg.querySelectorAll(".lure-link").forEach(btn => btn.onclick = () => { dlg.close(); lureCard(btn.dataset.code); });
   const go = $("#fishWhere");

@@ -455,6 +455,81 @@ function rainWatch(rows, key, win) {
     wetFrom: hrs.find(q => lv(q)).h, wetTo: hrs.filter(q => lv(q)).pop().h + 1 };
 }
 
+/* ---------- v3.6 (5/11/2026): depth along the cast, cast plan per fish, jig weight, swell direction, moon light, solunar ----------
+   Depth profile: straight lines between the EMODnet facts of a beach ({to5, to10, at300, at1000}: grid ~115 m, so a rough estimate) or of
+   a 200 m strip ({to5, z200}: z200 = deepest point within 300 m). Points are [distance m, depth m], depth kept non-decreasing. */
+function depthProfile(d) {
+  if (!d) return null;
+  const pts = [[0, 0]];
+  if (d.z200 != null) { if (d.to5 != null) pts.push([d.to5, 5]); pts.push([300, d.z200]); }
+  else { if (d.to5 != null) pts.push([d.to5, 5]); if (d.at300 != null) pts.push([300, d.at300]); if (d.to10 != null) pts.push([d.to10, 10]); if (d.at1000 != null) pts.push([1000, d.at1000]); }
+  if (pts.length < 2) return null;
+  pts.sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < pts.length; i++) pts[i][1] = Math.max(pts[i][1], pts[i - 1][1]);
+  return pts;
+}
+function depthAt(prof, x) {
+  if (!prof) return null;
+  for (let i = 1; i < prof.length; i++) { const [x0, y0] = prof[i - 1], [x1, y1] = prof[i];
+    if (x <= x1) return x1 > x0 ? y0 + (y1 - y0) * (x - x0) / (x1 - x0) : y1; }
+  return prof[prof.length - 1][1];
+}
+function distFor(prof, z) { // the distance at which the depth first reaches z (null: not within the profile)
+  if (!prof) return null;
+  for (let i = 1; i < prof.length; i++) { const [x0, y0] = prof[i - 1], [x1, y1] = prof[i];
+    if (z <= y1) return y1 > y0 ? x0 + (x1 - x0) * (z - y0) / (y1 - y0) : x0; }
+  return null;
+}
+// cast plan for one fish at one beach / strip: depth over the fish's casting range, and how far to cast to reach the depth it lives at.
+// From a sandy shore most anglers cast 30–60 m; ~80 m with a surf rod; beyond 100 m is out of reach.
+const CAST_MAX = 100;
+function castPlan(sp, prof, type) {
+  const g = sp && sp.gear; if (!g || !g.cast || !prof) return null;
+  const r1 = Math.round(depthAt(prof, g.cast[0]) * 2) / 2, r2 = Math.round(depthAt(prof, g.cast[1]) * 2) / 2;
+  const res = { cast: g.cast, z: [r1, r2] }, structure = ["marina", "port", "breakwater", "reef"].includes(type);
+  if (g.depth && g.depth[0] > r2 + 0.5) {
+    const d = distFor(prof, g.depth[0]);
+    res.need = { z: g.depth[0], dist: d != null ? Math.round(d / 10) * 10 : null, reach: d != null && d <= CAST_MAX };
+    if (structure) res.need.structure = true; // off a breakwater or a pier head the water is deeper than the beach profile says
+  }
+  return res;
+}
+// jig / lure weight: rule of thumb 2–3.5 g per metre of depth to reach the bottom within a few seconds, more with current, wind and waves;
+// at least 10–20 g to cast 40 m or more from the shore. Returns [lo, hi] grams in 5 g steps.
+function jigWeight(depth, cur, wind, wave) {
+  const z = Math.max(1, depth || 3), k = 1 + Math.min(1, 0.4 * Math.max(0, (cur || 0) - 0.3)) + ((wind || 0) > 25 ? 0.3 : 0) + ((wave || 0) > 80 ? 0.2 : 0);
+  const r5 = v => Math.max(5, Math.round(v / 5) * 5);
+  const lo = r5(Math.max(10, z * 2) * k), hi = r5(Math.max(20, z * 3.5) * k);
+  return [Math.min(lo, 80), Math.min(Math.max(hi, lo + 5), 100)];
+}
+// swell direction against the shore (Open-Meteo marine wave_direction / swell_wave_direction: where the waves come FROM).
+// az = the beach's seaward azimuth. rel > 0: the waves come from the right of an angler who faces the sea → the drift runs to the left.
+function swellAdvice(dirFrom, az, h, per, hasBreakwater) {
+  if (dirFrom == null || az == null || h == null || h < 40) return null;
+  const rel = ((dirFrom - az) % 360 + 540) % 360 - 180, a = Math.abs(rel), side = rel > 0 ? "שמאלה" : "ימינה";
+  const lee = (((az + (rel > 0 ? -90 : 90)) % 360) + 360) % 360; // compass bearing of the sheltered side of a structure
+  if (a <= 20) return { k: "head", rel, text: `הגלים נכנסים ישר לחוף${per >= 7 ? ` (מחזור ${Math.round(per)} שנ׳)` : ""} — זרמים חוזרים בין השרטונים: שם הלברק והדניס מחכים למזון, ושם לא נכנסים למים` };
+  if (a <= 65) return { k: "oblique", rel, lee, text: `הגלים מגיעים באלכסון — זרם לאורך החוף ${side} (כשהפנים לים): להטיל מעט נגד הזרם ולתת לפיתיון להיסחף${hasBreakwater ? "; הצד המוגן של השובר הוא בצד שהזרם הולך אליו" : ""}` };
+  if (a <= 110) return { k: "side", rel, lee, text: `הגלים מגיעים מהצד — החוף מוגן יחסית${hasBreakwater ? "; מאחורי השובר, בצד שאליו הגלים הולכים, המים רגועים" : ""}` };
+  return null; // waves from the land side: offshore, no effect on the beach
+}
+// moonlight after dark: the illuminated fraction reduced by cloud cover (an overcast full moon behaves like a dark night)
+function moonLight(ill, cloud) { return cloud == null ? ill : ill * (1 - 0.75 * Math.min(100, cloud) / 100); }
+// solunar periods (John Alden Knight's tables): major ≈ 2 h around the moon's upper and lower transit, minor ≈ 1 h around moonrise and
+// moonset. Weak evidence — shown as information, not scored. Transit = the moon's highest point, found by a 10-minute scan of the day.
+function solunar(key, lat, lon) {
+  const t0 = ilTime(key, 0), alt = T => SunCalc.getMoonPosition(new Date(T), lat, lon).altitude, out = [];
+  let hi = null, lo = null;
+  for (let T = t0; T < t0 + 864e5; T += 6e5) { const a = alt(T); if (!hi || a > hi.a) hi = { T, a }; if (!lo || a < lo.a) lo = { T, a }; }
+  const edge = T => T > t0 + 6e5 && T < t0 + 864e5 - 6e5; // a real turning point, not the day's edge
+  if (hi && edge(hi.T)) out.push({ k: "major", T: hi.T, from: hi.T - 36e5, to: hi.T + 36e5, what: "הירח במרום" });
+  if (lo && edge(lo.T)) out.push({ k: "major", T: lo.T, from: lo.T - 36e5, to: lo.T + 36e5, what: "הירח בנקודה הנמוכה" });
+  const m = SunCalc.getMoonTimes(new Date(t0 + 6e5), lat, lon);
+  if (m.rise) out.push({ k: "minor", T: +m.rise, from: +m.rise - 18e5, to: +m.rise + 18e5, what: "זריחת הירח" });
+  if (m.set) out.push({ k: "minor", T: +m.set, from: +m.set - 18e5, to: +m.set + 18e5, what: "שקיעת הירח" });
+  return out.filter(p => il(p.T).key === key).sort((a, b) => a.T - b.T);
+}
+
 /* ---------- golden hours and the best hour of a day ---------- */
 function goldenHours(key, lat, lon) {
   const t = SunCalc.getTimes(new Date(ilTime(key, 12)), lat, lon), sr = il(+t.sunrise).hf, ss = il(+t.sunset).hf;
@@ -547,5 +622,5 @@ function bestWindow(curve, fromT) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, tempFit, currentAdvice, rainWatch, curMean };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, tempFit, currentAdvice, rainWatch, curMean, depthProfile, depthAt, distFor, castPlan, jigWeight, swellAdvice, moonLight, solunar };
 })();
