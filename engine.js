@@ -257,6 +257,18 @@ const comfort = (r, o) => safety(r, o).score;
 
 const level = s => s >= 80 ? { t: "מצוין", c: "lv-top" } : s >= 65 ? { t: "טוב מאוד", c: "lv-good" } : s >= 50 ? { t: "טוב", c: "lv-ok" } : s >= 35 ? { t: "בינוני", c: "lv-mid" } : { t: "חלש", c: "lv-low" };
 
+/* ---------- water temperature for a species (v3.5) ----------
+   sp.t4 = [lives from, ideal from, ideal to, lives to] °C (data/species-plus.js, after Hooked); older entries only have sp.temp = the
+   preferred range (then ±1° is tolerated, as before). out = outside the range where it lives ("too cold / too warm" — such a fish is
+   not used for the day's lures), ideal = inside the ideal range, d = °C from the ideal range. */
+function tempFit(sp, sst) {
+  if (sst == null) return null;
+  if (sp.t4) { const [a, b, c, d] = sp.t4, dist = sst < b ? b - sst : sst > c ? sst - c : 0;
+    if (sst < a) return { out: true, d: dist, text: "המים קרים לו" }; if (sst > d) return { out: true, d: dist, text: "המים חמים לו" };
+    return dist ? { out: false, d: dist, text: sst < b ? "המים מעט קרים לו" : "המים מעט חמים לו" } : { out: false, ideal: true, d: 0, text: "טמפ׳ מים אידיאלית לו" }; }
+  if (sp.temp) { if (sst < sp.temp[0] - 1) return { out: true, d: sp.temp[0] - sst, text: "המים קרים לו" }; if (sst > sp.temp[1] + 1) return { out: true, d: sst - sp.temp[1], text: "המים חמים לו" }; }
+  return null;
+}
 /* ---------- fish and lures for a beach ---------- */
 function fishFor(beach, month, sst) {
   const res = { now: [], off: [], protected: [], caution: [] };
@@ -266,9 +278,8 @@ function fishFor(beach, month, sst) {
     if (sp.protectedIn && sp.protectedIn.includes(beach.water)) { res.protected.push(sp); continue; }
     if (sp.caution) { res.caution.push(sp); continue; }
     const peak = sp.p && sp.p.includes(month), inS = sp.m.includes(month);
-    let tempNote = null;
-    if (sst != null && sp.temp) { if (sst < sp.temp[0] - 1) tempNote = "המים קרים לו"; else if (sst > sp.temp[1] + 1) tempNote = "המים חמים לו"; }
-    const row = { sp, peak, tempNote };
+    const tf = tempFit(sp, sst), tempNote = tf && tf.out ? tf.text : null;
+    const row = { sp, peak, tempNote, temp: tf };
     (inS ? res.now : res.off).push(row);
   }
   res.now.sort((a, b) => (b.peak - a.peak) || ((a.tempNote ? 1 : 0) - (b.tempNote ? 1 : 0)));
@@ -385,14 +396,18 @@ function luresFor(fishNow, layer) {
 
 /* ---------- fit of one species to one beach (0–100), for "where to fish for X" ----------
    season: peak 90 · in season 70 · out of season 15 · +10 if reported at this beach · −25 if the habitat does not match the beach type
-   · −4 per °C outside the preferred water range (at most −12). Protected or caution species: null. */
+   · water (v3.5, sp.t4): −12 outside the range where it lives, −2 per °C outside the ideal range (at most −8) · species with only
+   sp.temp: −12 when more than 1° outside it. Protected or caution species: null. */
 function speciesFit(beach, sp, month, sst) {
   if (!sp.waters.includes(beach.water) || sp.caution || (sp.protectedIn && sp.protectedIn.includes(beach.water))) return null;
   let s = sp.p && sp.p.includes(month) ? 90 : sp.m.includes(month) ? 70 : 15;
   const why = [s >= 90 ? "שיא העונה" : s >= 70 ? "בעונה" : "מחוץ לעונה"];
   if ((beach.reports || []).includes(sp.name)) { s += 10; why.push("דווח בחוף הזה"); }
   if (beach.water !== "lake" && !sp.habitats.includes(beach.type)) { s -= 25; why.push("סוג החוף פחות מתאים"); }
-  if (sst != null && sp.temp) { const d = sst < sp.temp[0] ? sp.temp[0] - sst : sst > sp.temp[1] ? sst - sp.temp[1] : 0; if (d > 0) { s -= Math.min(12, 4 * d); why.push(sst > sp.temp[1] ? "המים חמים לו" : "המים קרים לו"); } }
+  const tf = tempFit(sp, sst);
+  if (tf && tf.out) { s -= 12; why.push(tf.text); }                                    // outside the range where it lives
+  else if (tf && tf.d > 0) { s -= Math.min(8, 2 * tf.d); why.push(tf.text); }          // lives here, but outside the ideal range
+  else if (tf && tf.ideal) why.push(tf.text);
   return { score: Math.max(0, Math.min(100, Math.round(s))), why };
 }
 
@@ -532,5 +547,5 @@ function bestWindow(curve, fromT) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, currentAdvice, rainWatch, curMean };
+window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, tempFit, currentAdvice, rainWatch, curMean };
 })();
