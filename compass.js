@@ -113,16 +113,43 @@ function setTab(t) {
   if (t === "today" && window.FISHING_DASHBOARD) requestAnimationFrame(() => FISHING_DASHBOARD.invalidate());
 }
 
-/* ---------- beach picker ---------- */
+/* ---------- beach picker (v3.9.5): one button on the day screen opens a sheet with search, "nearest to me", the last beaches and the full list by region ---------- */
+const PIN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 10c0 6-7 11-7 11S5 16 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></svg>`;
+const distKm = (a, b) => { const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180, q = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(q)); };
 function fillPicker() {
-  const reg = $("#pickRegion"), sel = $("#pickBeach"), b = beachByName(state.beach);
-  reg.innerHTML = REGIONS.map(r => `<option ${r === b.region ? "selected" : ""}>${r}</option>`).join("");
-  const fill = r => { sel.innerHTML = BEACHES.filter(x => x.region === r).map(x => `<option ${x.name === state.beach ? "selected" : ""}>${esc(x.name)}</option>`).join(""); };
-  fill(b.region);
-  reg.onchange = () => { fill(reg.value); pickBeach(sel.value); };
-  sel.onchange = () => pickBeach(sel.value);
+  const b = beachByName(state.beach), btn = $("#beachPick"); if (!btn) return;
+  $("#beachPickName").textContent = b.name; $("#beachPickSub").textContent = `${b.region} · ${TYPE_NAMES[b.type] || ""}`;
+  if (!recentBeaches().includes(b.name)) store.set("compass-recent", [b.name, ...recentBeaches()].slice(0, 4)); // the current beach counts as the first "recent"
+  btn.onclick = openBeachPicker;
 }
-function pickBeach(n) { state.beach = n; store.set("compass-beach", n); renderToday(); if (state.tab === "fish") renderFish(); }
+const recentBeaches = () => (store.get("compass-recent", []) || []).filter(n => BEACHES.some(x => x.name === n));
+function openBeachPicker() {
+  const dlg = $("#beachDialog"); if (!dlg) return;
+  const row = (x, extra = "") => `<li><button type="button" class="bp-row" data-b="${esc(x.name)}"${x.name === state.beach ? ' aria-current="true"' : ""}><span><b>${esc(x.name)}</b>${vipTag(x)}<small>${esc(x.region)} · ${esc(TYPE_NAMES[x.type] || "")}${extra}</small></span></button></li>`;
+  const recent = recentBeaches().filter(n => n !== state.beach).slice(0, 3).map(beachByName);
+  dlg.innerHTML = `<form method="dialog"><header class="bp-head"><h2 id="beachDialogTitle">בחירת חוף</h2><button value="close" class="bp-close" aria-label="סגירה">✕</button></header>
+    <input type="search" id="bpSearch" class="bp-search" placeholder="חיפוש לפי שם, אזור או סוג חוף" autocomplete="off" aria-label="חיפוש חוף">
+    <div class="bp-near"><button type="button" id="bpNear" class="bp-near-btn">${PIN_SVG}החוף הקרוב אליי</button><p class="hint" id="bpNearOut" role="status" aria-live="polite"></p><ul class="bp-list" id="bpNearList"></ul></div>
+    ${recent.length ? `<section class="bp-sec"><h3>אחרונים</h3><ul class="bp-list">${recent.map(x => row(x)).join("")}</ul></section>` : ""}
+    <div id="bpAll">${REGIONS.map(r => { const bs = BEACHES.filter(x => x.region === r); return `<section class="bp-sec" data-region="${esc(r)}"><h3>${esc(r)} <small>${bs.length}</small></h3><ul class="bp-list">${bs.map(x => row(x)).join("")}</ul></section>`; }).join("")}</div>
+    <p class="hint bp-empty" id="bpEmpty" hidden>לא נמצא חוף כזה.</p></form>`;
+  const pick = n => { dlg.close(); pickBeach(n); fillPicker(); };
+  dlg.querySelectorAll(".bp-row").forEach(el => el.onclick = () => pick(el.dataset.b));
+  const q = $("#bpSearch"), tagsOf = x => ((window.BEACH_FEATURES || {})[x.name] || {}).tags || [];
+  q.oninput = () => { const t = q.value.trim(); let shown = 0;
+    dlg.querySelectorAll("#bpAll .bp-row").forEach(el => { const x = beachByName(el.dataset.b), hit = !t || [x.name, x.region, TYPE_NAMES[x.type] || "", ...tagsOf(x)].some(v => v.includes(t)); el.parentElement.hidden = !hit; if (hit) shown++; });
+    dlg.querySelectorAll("#bpAll .bp-sec").forEach(sec => sec.hidden = ![...sec.querySelectorAll("li")].some(li => !li.hidden));
+    $("#bpEmpty").hidden = shown > 0; };
+  $("#bpNear").onclick = () => { const out = $("#bpNearOut"); if (!navigator.geolocation) { out.textContent = "הדפדפן לא נותן מיקום."; return; } out.textContent = "מאתרים…";
+    navigator.geolocation.getCurrentPosition(p => { const me = { lat: p.coords.latitude, lon: p.coords.longitude };
+      const near = BEACHES.map(x => ({ x, d: distKm(me, x) })).sort((a, c) => a.d - c.d).slice(0, 3), list = $("#bpNearList");
+      out.textContent = ""; list.innerHTML = near.map(({ x, d }) => row(x, ` · ${d < 10 ? d.toFixed(1) : Math.round(d)} ק״מ`)).join("");
+      list.querySelectorAll(".bp-row").forEach(el => el.onclick = () => pick(el.dataset.b)); list.querySelector(".bp-row").focus();
+    }, () => { out.textContent = "לא התקבל מיקום — אשרו גישה למיקום בהגדרות הדפדפן."; }, { enableHighAccuracy: true, timeout: 15000 }); };
+  dlg.onclick = e => { if (e.target === dlg) dlg.close(); };
+  dlg.showModal(); dlg.scrollTop = 0; if (matchMedia("(hover:hover)").matches) q.focus();
+}
+function pickBeach(n) { state.beach = n; store.set("compass-beach", n); store.set("compass-recent", [n, ...recentBeaches().filter(x => x !== n)].slice(0, 4)); renderToday(); if (state.tab === "fish") renderFish(); }
 
 /* ---------- beach characteristics (data/beach-features.js) ---------- */
 function featuresHtml(b) {
@@ -603,6 +630,17 @@ async function renderSpots(b) {
 }
 
 /* ---------- ranking ---------- */
+// v3.9.5: one renderer for ranked beach lists — runs of equal scores get a group line, five rows show, the rest fold under "עוד"
+function rankListHtml(items, where) {
+  const li = (r, i) => `<li><button type="button" class="rank-row ${r.cls}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)}${vipTag(r.b)} <small>${r.sub}</small></span><span class="rs">${r.rs}</span><span class="rv">${r.v}</span>${r.flags || ""}</button></li>`;
+  const out = []; let i = 0;
+  while (i < items.length) { let j = i; while (j < items.length && items[j].v === items[i].v) j++;
+    if (j - i >= 3) out.push({ tie: `<li class="rank-tie">${j - i} חופים${where ? " ב" + esc(where) : ""}: ${items[i].v}</li>` });
+    for (let k = i; k < j; k++) out.push({ row: li(items[k], k) }); i = j; }
+  const rowsAt = out.map((o, n) => o.row ? n : -1).filter(n => n >= 0), cut = rowsAt.length > 6 ? rowsAt[5] : out.length;
+  const html = out.map(o => o.tie || o.row), rest = html.slice(cut);
+  return html.slice(0, cut).join("") + (rest.length ? `<li class="rank-more"><details><summary>עוד ${rowsAt.length - 5} חופים</summary><ul class="rank-list">${rest.join("")}</ul></details></li>` : "");
+}
 function renderRank() {
   if (!FC) return;
   if (!state.rankDay) state.rankDay = todayKey();
@@ -610,17 +648,18 @@ function renderRank() {
   $("#rankRegion").innerHTML = `<option value="all">כל האזורים</option>` + REGIONS.map(r => `<option ${r === state.rankRegion ? "selected" : ""}>${r}</option>`).join("");
   $("#rankRegion").onchange = e => { state.rankRegion = e.target.value; renderRank(); };
   $("#rankSession").value = state.rankSession; $("#rankSession").onchange = e => { state.rankSession = e.target.value; renderRank(); };
-  const rows = BEACHES.filter(b => state.rankRegion === "all" || b.region === state.rankRegion).map(b => {
-    const r = beachDay(b, state.rankDay), ok = ahead(r.sessions.filter(s => !s.na), state.rankDay);
+  const day = state.rankDay, rows = BEACHES.filter(b => state.rankRegion === "all" || b.region === state.rankRegion).map(b => {
+    const r = beachDay(b, day), ok = ahead(r.sessions.filter(s => !s.na), day);
     const s = state.rankSession === "best" ? ok.sort((a, c) => c.score - a.score)[0] : ok.find(q => q.id === state.rankSession);
-    return { b, s };
-  }).filter(x => x.s).sort((a, c) => c.s.score - a.s.score);
+    if (!s) return null;
+    // v3.9.5: ties are broken by the safety minimum and the beach's structure fit (whereToday); the headline reason rides in the row
+    const w = whyHereItems(s, b, day), pro = (w && w.pro) || [], reason = pro.find(x => !/^(שחר|דמדומים) —/.test(x.text)) || null;
+    return { b, s, w, ws: E.whereScore(w), safeMin: s.safe ? s.safe.min : -1, reason };
+  }).filter(Boolean).sort((a, c) => c.s.score - a.s.score || c.safeMin - a.safeMin || c.ws - a.ws || a.b.name.localeCompare(c.b.name, "he"));
   renderGoToday(rows);
-  $("#rankList").innerHTML = rows.map(({ b, s }, i) => {
-    const lv = E.level(s.score);
-    return `<li><button type="button" class="rank-row ${lv.c}" data-b="${esc(b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(b.name)}${vipTag(b)} <small>${esc(b.region)}</small></span>
-      <span class="rs">${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}</span><span class="rv">${s.score}</span>${closedAt(b) ? `<span class="rl" title="${esc(closedAt(b).name)}: ${esc(closedAt(b).rule || "")}">⛔</span>` : ""}${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}</button></li>`;
-  }).join("");
+  $("#rankList").innerHTML = rankListHtml(rows.map(({ b, s, reason }) => ({ b, cls: E.level(s.score).c, v: s.score,
+    sub: `${esc(b.region)}${reason ? ` · ${esc(reason.text)}` : ""}`, rs: `${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}`,
+    flags: `${closedAt(b) ? `<span class="rl" title="${esc(closedAt(b).name)}: ${esc(closedAt(b).rule || "")}">⛔</span>` : ""}${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}` })), state.rankRegion === "all" ? "" : state.rankRegion);
   $$("#rankList .rank-row, #goToday .go-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
 /* ---------- where to go today (docs/strike-point/18 stage 2): the three best beaches of the region for a fish and a session ----------
@@ -748,9 +787,8 @@ function renderTarget() {
     const ss = ahead(day.sessions, key).filter(s => !s.na && (!want.size || want.has(s.id))).sort((a, c) => c.score - a.score)[0];
     if (!ss) return null;
     return { b, fit, s: ss, rank: Math.round(0.6 * fit.score + 0.4 * ss.score) };
-  }).filter(Boolean).filter(r => r.fit.score >= 40 && !closedAt(r.b)).sort((a, c) => c.rank - a.rank).slice(0, 15);
-  out.innerHTML = rows.length ? rows.map((r, i) => `<li><button type="button" class="rank-row ${E.level(r.rank).c}" data-b="${esc(r.b.name)}"><span class="rk">${i + 1}</span><span class="rn">${esc(r.b.name)}${vipTag(r.b)} <small>${esc(r.b.region)} · ${r.fit.why.join(", ")}</small></span>
-    <span class="rs">${r.s.name} ${E.hm(r.s.start)}</span><span class="rv">${r.rank}</span>${r.b.legal ? `<span class="rl" title="${esc(r.b.legal)}">⚖️</span>` : ""}</button></li>`).join("") : "<li class='empty'>אין חוף מתאים היום לדג הזה.</li>";
+  }).filter(Boolean).filter(r => r.fit.score >= 40 && !closedAt(r.b)).sort((a, c) => c.rank - a.rank || c.fit.score - a.fit.score || c.s.score - a.s.score);
+  out.innerHTML = rows.length ? rankListHtml(rows.map(r => ({ b: r.b, cls: E.level(r.rank).c, v: r.rank, sub: `${esc(r.b.region)} · ${r.fit.why.join(", ")}`, rs: `${r.s.name} ${E.hm(r.s.start)}`, flags: r.b.legal ? `<span class="rl" title="${esc(r.b.legal)}">⚖️</span>` : "" }))) : "<li class='empty'>אין חוף מתאים היום לדג הזה.</li>";
   $$("#targetList .rank-row").forEach(btn => btn.onclick = () => { state.day = key; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
 }
 function renderFish() {

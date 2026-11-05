@@ -255,3 +255,29 @@ body{background:var(--ground);padding-bottom:84px}
 .file-btn{display:inline-flex;align-items:center;padding:0 14px;min-height:40px;border:1px solid var(--line);border-radius:var(--pill,999px);cursor:pointer;font-weight:700;font-size:14px}
 .rel-tag{font-style:normal;font-size:12px;padding:1px 6px;border-radius:6px;background:#e6f2ef;color:#1f6b5c}
 .log-list .trip{opacity:.8}.log-list .log-sum{font-size:13px;color:var(--muted);list-style:none}
+
+/* v3.9.5 — beach picker: one button on the day screen; a sheet with search, nearest to me, the last beaches and the full list by region */
+.beach-pick{display:flex;align-items:center;gap:12px;width:100%;max-width:460px;margin:0 auto;min-height:56px;padding:8px 16px;border:1px solid var(--line-2);border-radius:var(--pill);background:var(--surface-warm);color:var(--ink);box-shadow:var(--sh-1);text-align:start;cursor:pointer;transition:transform var(--dur-1) var(--ease-out)}
+.beach-pick:active{transform:scale(.98)}.beach-pick>svg{width:24px;height:24px;flex:none;color:var(--brand)}.beach-pick .bp-chevron{color:var(--muted);margin-inline-start:auto}
+.bp-text{display:flex;flex-direction:column;min-width:0}.bp-text b{font:800 18px/1.3 var(--font-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bp-text small{font-size:12px;color:var(--muted)}
+.beach-dialog{border:0;border-radius:var(--r-lg);padding:0;width:min(560px,calc(100% - 32px));max-height:88dvh;background:var(--surface);color:var(--ink);box-shadow:0 32px 100px #092f3733;overscroll-behavior:contain}
+.beach-dialog::backdrop{background:#092f378c}
+.beach-dialog form{display:flex;flex-direction:column;max-height:88dvh;overflow:auto;padding-bottom:16px}
+.bp-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px}.bp-head h2{margin:0;font:800 22px/1.3 var(--font-display)}
+.bp-close{width:44px;height:44px;flex:none;border:0;border-radius:50%;background:var(--surface-2);color:var(--ink);font-size:18px;cursor:pointer}
+.bp-search{margin:4px 20px 8px;min-height:48px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);font:500 16px var(--font-body);color:var(--ink)}.bp-search:focus{border-color:var(--brand);background:var(--surface);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+.bp-near{padding:0 20px}.bp-near-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;border:1px solid var(--brand);border-radius:var(--pill);background:var(--brand-soft);color:var(--brand-ink);font:700 14px var(--font-body);cursor:pointer}.bp-near-btn svg{width:18px;height:18px}
+.bp-near .hint{margin:6px 0 0}.bp-near .hint:empty{display:none}
+.bp-sec{padding:0 20px}.bp-sec h3{margin:14px 0 2px;font:700 13px/1.4 var(--font-body);color:var(--muted)}.bp-sec h3 small{font-weight:500}
+.bp-list{list-style:none;margin:0;padding:0}.bp-row{width:100%;display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 10px;border:0;border-bottom:1px solid var(--line-2);background:none;color:var(--ink);text-align:start;font:inherit;cursor:pointer;border-radius:var(--r-sm)}
+.bp-row>span{display:flex;flex-direction:column;min-width:0}.bp-row b{font-size:16px}.bp-row small{font-size:12px;color:var(--muted)}
+.bp-row[aria-current="true"]{background:var(--gold-soft)}.bp-row[aria-current="true"] b{color:var(--gold-ink)}
+@media(hover:hover){.bp-row:hover{background:var(--surface-2)}}.bp-row:active{background:var(--surface-2)}
+.bp-empty{padding:16px 20px}
+.beach-dialog{opacity:1;transform:translateY(0);transition:opacity var(--dur-3) var(--ease-out),transform var(--dur-3) var(--ease-out),overlay var(--dur-3) allow-discrete,display var(--dur-3) allow-discrete}
+@starting-style{.beach-dialog[open]{opacity:0;transform:translateY(12px)}}
+@media(max-width:720px){.beach-dialog{width:100%;max-width:none;margin:auto 0 0;border-radius:24px 24px 0 0;max-height:85dvh}.beach-dialog form{max-height:85dvh}.beach-pick{max-width:none;min-height:52px}.bp-text b{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.beach-dialog{transition:opacity var(--dur-3)}@starting-style{.beach-dialog[open]{transform:none}}}
+/* ranked lists: a line for a run of equal scores, five rows, then "more" */
+.rank-tie{list-style:none;font:700 13px/1.4 var(--font-body);color:var(--muted);padding:8px 6px 0}
+.rank-more{list-style:none}.rank-more>details>summary{display:flex;align-items:center;min-height:44px;padding:8px 6px;cursor:pointer;font:700 15px var(--font-body);color:var(--brand-ink)}.rank-more .rank-list{margin:4px 0 0}
