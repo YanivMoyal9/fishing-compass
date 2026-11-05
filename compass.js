@@ -109,7 +109,7 @@ function setTab(t) {
   $$("[data-tab]").forEach(el => el.hidden = el.dataset.tab !== t);
   $$(".tabbar button").forEach(b => { const on = b.dataset.go === t; b.classList.toggle("is-on", on); b.setAttribute("aria-current", on ? "page" : "false"); });
   if (t === "rank") renderRank(); if (t === "fish") renderFish(); if (t === "log") renderLog(); if (t === "lures") renderLureGuide();
-  window.scrollTo({ top: 0 });
+  window.scrollTo({ top: 0, behavior: "instant" }); // v3.9.6: a tab switch is a jump, never a glide
   if (t === "today" && window.FISHING_DASHBOARD) requestAnimationFrame(() => FISHING_DASHBOARD.invalidate());
 }
 

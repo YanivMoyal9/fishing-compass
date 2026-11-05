@@ -12,7 +12,7 @@
 .now-text p{margin:3px 0 0;font-size:14px;line-height:1.45;color:#d7e8e8}
 .now-text b{color:#fff}
 .now-button{flex:none;border:1px solid #f4996c;background:transparent;color:#fff;font-weight:800;font-size:13px;padding:8px 14px;border-radius:7px;white-space:nowrap}
-.now-button:hover{background:#f4996c;color:var(--navy-deep)}
+@media(hover:hover){.now-button:hover{background:#f4996c;color:var(--navy-deep)}}
 .now-button[aria-pressed="true"]{background:#f4996c;color:var(--navy-deep)}
 
 @media(max-width:640px){
@@ -66,7 +66,7 @@
 .hero-v3 p{color:#e8f1f1;font-size:18px;line-height:1.55;text-shadow:0 1px 10px rgba(0,0,0,.4)}
 .hero-v3 .hero-cta{background:#d9602f;color:#fff;border:0;border-radius:9px;padding:13px 22px;font-size:16px;box-shadow:0 10px 26px rgba(0,0,0,.3)}
 .hero-v3 .hero-cta span{color:#fff}
-.hero-v3 .hero-cta:hover{background:#bf4f22}
+@media(hover:hover){.hero-v3 .hero-cta:hover{background:#bf4f22}}
 .hero-scroll{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);width:26px;height:42px;border:2px solid rgba(255,255,255,.7);border-radius:14px;z-index:1}
 .hero-scroll::after{content:"";position:absolute;left:50%;top:8px;width:4px;height:8px;margin-left:-2px;border-radius:2px;background:#fff;animation:heroScroll 1.8s ease-in-out infinite}
 @keyframes heroScroll{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(14px)}}
@@ -88,7 +88,7 @@
 .now-main{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .now-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px}
 .nm{position:relative;min-height:36px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#cfe2e3;border-radius:7px;font:800 12px Assistant,Arial,sans-serif;padding:4px 0;line-height:1.1}
-.nm:hover{background:rgba(255,255,255,.14);color:#fff}
+@media(hover:hover){.nm:hover{background:rgba(255,255,255,.14);color:#fff}}
 .nm i{position:absolute;inset-inline:0;bottom:2px;font-style:normal;font-size:10px;letter-spacing:1px;color:#6fd3c9;line-height:1}
 .nm.is-now{background:#f4996c;border-color:#f4996c;color:var(--navy-deep)}
 .nm.is-now i{color:var(--navy-deep)}
@@ -119,7 +119,7 @@
 
 /* ===== Suggest a lure / fix ===== */
 .fix-link{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;margin-inline-start:auto}
-.fix-link:hover{color:var(--teal-deep);text-decoration:underline}
+@media(hover:hover){.fix-link:hover{color:var(--teal-deep);text-decoration:underline}}
 .fix-link+.share-link{margin-inline-start:12px}
 .suggest{margin:10px auto 40px}
 .suggest-head{margin-bottom:14px}
@@ -152,7 +152,7 @@
 .sf-error{margin:0;color:#b3261e;font-weight:700;font-size:14px}
 .sf-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .sf-send{border:0;background:#c4542c;color:#fff;font-weight:800;font-size:15px;padding:12px 20px;border-radius:9px}
-.sf-send:hover{background:#a8441f}.sf-send:disabled{opacity:.6;cursor:wait}
+@media(hover:hover){.sf-send:hover{background:#a8441f}}.sf-send:disabled{opacity:.6;cursor:wait}
 .sf-copy{border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:800;font-size:14px;padding:11px 16px;border-radius:9px}
 .sf-status{font-size:13px;color:var(--teal-deep);font-weight:700}
 @media(max-width:640px){.sf-grid{grid-template-columns:1fr}.sf-months{grid-template-columns:repeat(6,minmax(0,1fr))}.suggest-form{padding:15px}.sf-send,.sf-copy{flex:1}}
@@ -214,7 +214,7 @@ html[dir=rtl] .fish-cal[open] summary::before{transform:rotate(-90deg)}
 .nf-label{flex:none;font-size:12px;font-weight:800;color:#f4996c;padding-top:10px;min-width:52px}
 .nf-list{display:flex;flex-wrap:wrap;gap:5px;flex:1}
 .nf{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:4px 11px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#cfe2e3;border-radius:7px;font:800 13px Assistant,Arial,sans-serif;cursor:pointer}
-.nf:hover{background:rgba(255,255,255,.14);color:#fff}
+@media(hover:hover){.nf:hover{background:rgba(255,255,255,.14);color:#fff}}
 .nf.is-in{border-color:rgba(111,211,201,.55);color:#e9fbf8}
 .nf.is-peak{border-color:#f4996c;color:#fff}
 .nf.is-off{opacity:.5}

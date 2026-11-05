@@ -30,7 +30,7 @@ details[open]>summary::after{transform:rotate(-135deg)}
 .subnav{position:sticky;top:var(--appbar-h);z-index:30;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 0 10px;margin:0 0 4px;background:linear-gradient(var(--bg) 78%,rgba(242,245,245,0))}
 .subnav::-webkit-scrollbar{display:none}
 .subnav a{flex:none;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--pill);padding:7px 14px;font:700 14px Assistant,sans-serif;box-shadow:0 1px 2px rgba(15,45,55,.04)}
-.subnav a:hover,.subnav a:focus-visible{border-color:var(--brand);color:var(--brand-ink)}
+.subnav a:focus-visible{border-color:var(--brand);color:var(--brand-ink)}@media(hover:hover){.subnav a:hover{border-color:var(--brand);color:var(--brand-ink)}}
 
 /* ---- toolbar (beach + day) ---- */
 .toolbar{padding:12px 14px;margin:6px 0 0}
@@ -92,13 +92,13 @@ details[open]>summary::after{transform:rotate(-135deg)}
 .now-strip{background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line);border-radius:var(--r-lg)!important;box-shadow:var(--sh-1)}
 .now-label,.nf-label{color:var(--accent)!important}
 .now-button{border-color:var(--brand)!important;color:var(--brand-ink)!important;border-radius:var(--pill)!important;background:transparent}
-.now-button:hover,.now-button[aria-pressed="true"]{background:var(--brand)!important;color:#fff!important}
+.now-button[aria-pressed="true"]{background:var(--brand)!important;color:#fff!important}@media(hover:hover){.now-button:hover{background:var(--brand)!important;color:#fff!important}}
 .now-strip .nm{border:1px solid var(--line)!important;background:var(--surface-2)!important;color:var(--ink)!important;border-radius:var(--r-sm)!important}
 .now-strip .nm.is-now{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
 .now-strip .nm.is-sel{outline:none!important}.now-strip .nm.is-sel:not(.is-now){background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important}
 .now-fish{color:var(--ink)!important}.now-fish>span{color:var(--brand-ink)!important}.now-fish b.pk{color:var(--accent)!important}
 .nf{border:1px solid var(--line)!important;background:var(--surface-2)!important;color:var(--ink)!important}
-.nf:hover{border-color:var(--brand)!important}
+@media(hover:hover){.nf:hover{border-color:var(--brand)!important}}
 .nf.is-in{border-color:#9fd2c7!important}.nf.is-peak{border-color:var(--accent)!important}
 .nf.is-sel{background:var(--brand)!important;color:#fff!important;border-color:var(--brand)!important;outline:none!important}
 .nf-note{background:var(--brand-soft)!important;color:var(--brand-ink)!important}

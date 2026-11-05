@@ -9,7 +9,7 @@ body{background:var(--ground);padding-bottom:84px}
 .brand b{display:block;font-family:Heebo,Assistant,sans-serif;font-size:20px;font-weight:800;letter-spacing:.2px}
 .brand small{display:block;font-size:13px;opacity:.75}
 .icon-btn{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:999px;width:40px;height:40px;font-size:20px;cursor:pointer}
-.icon-btn:hover{background:rgba(255,255,255,.22)}
+@media(hover:hover){.icon-btn:hover{background:rgba(255,255,255,.22)}}
 .tabbar{display:flex;justify-content:center;gap:4px;padding:0 8px 8px}
 .tabbar button{flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;color:#cfe2e4;font:600 14px Assistant,sans-serif;padding:6px 4px;border-radius:12px;cursor:pointer}
 .tabbar button span{font-size:20px}
@@ -50,7 +50,7 @@ body{background:var(--ground);padding-bottom:84px}
 .sess-cond dt{font-size:12px;color:var(--muted)}.sess-cond dd{margin:0;font-weight:700;font-size:14px}
 .sess-fish,.sess-lures{font-size:14px;margin:6px 0}
 .lure-link{border:1px solid var(--teal);color:var(--teal-deep);background:#fff;border-radius:999px;padding:3px 10px;font:600 13px Assistant,sans-serif;cursor:pointer;margin:2px 0}
-.lure-link:hover{background:var(--teal-pale)}
+@media(hover:hover){.lure-link:hover{background:var(--teal-pale)}}
 .why summary{cursor:pointer;color:var(--teal-deep);font-weight:700;font-size:14px}
 .why ul{list-style:none;padding:0;margin:6px 0 0;font-size:14px}
 .why li{display:flex;gap:8px;padding:2px 0}
@@ -76,7 +76,7 @@ body{background:var(--ground);padding-bottom:84px}
 .about li{margin:4px 0;font-size:14px}
 .rank-list{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:6px}
 .rank-row{width:100%;display:grid;grid-template-columns:34px 1fr auto 52px auto;align-items:center;gap:8px;background:#fff;border:0;border-inline-start:6px solid var(--lvc);border-radius:12px;padding:10px 12px;font:500 15px Assistant,sans-serif;color:var(--ink);text-align:start;cursor:pointer}
-.rank-row:hover{background:#f7fbfa}
+@media(hover:hover){.rank-row:hover{background:#f7fbfa}}
 .rk{color:var(--muted);font-weight:800}
 .rn small{color:var(--muted)}
 .rs{color:var(--muted);font-size:13px}
@@ -218,7 +218,7 @@ body{background:var(--ground);padding-bottom:84px}
 .go-today h2 small{font:500 13px Assistant,sans-serif;color:var(--muted);margin-inline-start:6px}
 .go-today ol{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .go-row{width:100%;display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;background:var(--soft);border:0;border-inline-start:6px solid var(--lvc);border-radius:12px;padding:10px 12px;font:500 15px Assistant,sans-serif;color:var(--ink);text-align:start;cursor:pointer}
-.go-row:hover{filter:brightness(.97)}.go-row .gn small{color:var(--muted)}.go-reason{display:block;font-size:13px;color:var(--muted);line-height:1.4;margin-top:2px}
+@media(hover:hover){.go-row:hover{filter:brightness(.97)}}.go-row .gn small{color:var(--muted)}.go-reason{display:block;font-size:13px;color:var(--muted);line-height:1.4;margin-top:2px}
 .go-lv{font:800 16px Heebo,sans-serif;color:var(--lvc);white-space:nowrap}.go-today .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
 .up-today{color:var(--top);font-weight:600}.up-today.is-down{color:var(--muted)}.lg-up{color:var(--top);font-weight:800}
 
