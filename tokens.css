@@ -35,7 +35,6 @@
   --ok-bg:#deeee3;--ok-ink:#175944;--ok-line:#c0dacf;
   --warn-bg:#fff1d6;--warn-ink:#785019;--warn-line:#e4c68f;
   --danger-bg:#fbe4e1;--danger-ink:#8a2a2a;--danger-line:#ecb4ad;
-  --danger-bg:#fbe4e1;--danger-ink:#8a2a2a;--danger-line:#ecb4ad;
   /* צורה ורווח */
   --r-sm:10px;--r-md:16px;--r-lg:24px;--pill:999px;--gap:20px;--appbar-h:0px;
   /* עומק: תמיד היסט ורכות, אף פעם לא הילה */
@@ -56,7 +55,6 @@
   --band-good:#2e6d52;--band-ok:#6b5a1f;--band-weak:#6e4426;--band-bad:#6b2f2f;
   --band-night:#0b171c;--band-twilight:#2a2416;--tide:#7fb3d8;
   --ok-bg:#163a2f;--ok-ink:#a6e3c4;--ok-line:#245844;--warn-bg:#3b2c0f;--warn-ink:#f2d59a;--warn-line:#6b5120;
-  --danger-bg:#3d1f1c;--danger-ink:#f3b8b0;--danger-line:#6e3a35;
   --danger-bg:#3d1f1c;--danger-ink:#f3b8b0;--danger-line:#6e3a35;
   --sh-1:0 3px 4px #00000040,0 12px 36px #00000055;--sh-2:0 8px 30px #00000055;--sh-3:0 5px 28px #00000066;
 }
