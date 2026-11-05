@@ -38,6 +38,15 @@ function beachDay(b, key, boat) {
   const res = { win, sessions, safeOf, tides: tides.filter(t => E.il(t.T).key === key), rows: rows.filter(r => E.il(r.T).key === key), rowsAll: rows, tidesAll: tides };
   cache.set(ck, res); return res;
 }
+// v3.9.2: the one answer of the day — the recommended window (engine.hourCurve + bestWindow, docs/strike-point/21), computed once here and
+// shared by the dashboard card and the session cards, so the screen never shows two "best times"
+function dayWindow(b, r, key) {
+  const sessions = r.sessions.filter(s => !s.na), isToday = key === todayKey();
+  const moon = E.moonEvents(key, 1, b.lat, b.lon), curve = E.hourCurve(r.rowsAll || r.rows, key, r.tidesAll || r.tides, moon, r.win, b.water, sessions);
+  let rec = E.bestWindow(curve, isToday ? Date.now() : 0), allPast = false;
+  if (!rec && isToday) { rec = E.bestWindow(curve, 0); allPast = true; }
+  return { moon, curve, rec, allPast };
+}
 /* ---------- safety context per hour: light, Kinneret wave (IMS official range), relevant official warning ---------- */
 const sunCache = new Map();
 function lightAt(b, T) {
@@ -250,14 +259,15 @@ const safeName = v => v >= 75 ? "טוב" : v >= 50 ? "סביר" : v >= 30 ? "ח�
 // v3.9.1: is the session's 40 ceiling the official warning's doing? Then the top banner already says it and the card stays quiet.
 const cappedByWarning = (b, x) => ((FC && FC.data[b.group]) || []).some(r => r.T >= x.T0 && r.T < x.T1 && zoneWarning(b, r.T));
 const evChip = ev => { const e = ev && E.EVIDENCE && E.EVIDENCE[ev]; return e ? ` <small class="ev ev-${e.c}" title="חוזק הראיה: ${esc(e.d)}">${e.t}</small>` : ""; };
-function sessionCard(s, b) {
+function sessionCard(s, b, rec) {
   if (s.na) return `<article class="sess is-na"><h3>${s.name}</h3><p>אין נתונים לשעות האלה</p></article>`;
+  const inWindow = rec && (rec.start + rec.end) / 2 >= s.start && (rec.start + rec.end) / 2 <= s.end; // v3.9.2: the one "when" of the day lives in the dashboard card
   const lv = E.level(s.score), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
   const lures = E.luresFor(fish.now, s.tip.layer).slice(0, 3);
   const past = x.T1 < Date.now();
   const fishLayer = fish.now.filter(r => !r.sp.bait && (r.sp.layer === "all" || r.sp.layer === s.tip.layer)).slice(0, 5).map(r => r.sp);
   return `<article class="sess ${lv.c}${past ? " is-past" : ""}">
-    <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
+    <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}${inWindow ? ' <small class="win-tag">בתוך החלון המומלץ</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
     <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
     ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 && !cappedByWarning(b, x) ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
@@ -314,7 +324,7 @@ function solunarHtml(b) {
   return `<p>🌙 שעות ירח (סולונאר): ${p.map(q => `<span class="sol-${q.k}">${q.k === "major" ? "<b>עיקרית</b>" : "משנית"} <bdi dir="ltr">${t(q)}</bdi> <small>(${q.what})</small></span>`).join(" · ")}${evChip("w")}</p>`;
 }
 /* ---------- beach header: name, features, actions, key times and conditions as tiles, details folded ---------- */
-function beachHeadHtml(b, r, gold, best, boat) {
+function beachHeadHtml(b, r, gold, boat) {
   const ll = `${b.lat},${b.lon}`, f = (window.BEACH_FEATURES || {})[b.name];
   const today = state.day === todayKey(), rows = r.rows, T = today ? Date.now() : E.ilTime(state.day, 7);
   const now = rows.reduce((m, x) => !m || Math.abs(x.T - T) < Math.abs(m.T - T) ? x : m, null);
@@ -323,7 +333,6 @@ function beachHeadHtml(b, r, gold, best, boat) {
   const rw = E.rainWatch(rows, state.day, r.win), hh = h => String(h % 24).padStart(2, "0") + ":00"; // v3.4: rain and the best dry window
   const tile = (icon, label, val, sub, key) => `<div class="tile${key ? " is-key" : ""}"><span>${icon} ${label}</span><b>${ltr(val)}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
   const tiles = [
-    best ? tile("🏆", "השעה הכי טובה", `${String(best.h).padStart(2, "0")}:00`, best.s ? best.s.name : "", true) : null,
     rw ? tile("☔", rw.level === "wet" ? "גשם צפוי" : "סיכוי לגשם", `${Math.round(rw.maxProb)}%`, rw.dry ? `חלון יבש ${hh(rw.dry.start)}–${hh(rw.dry.end)}` : `${hh(rw.wetFrom)}–${hh(rw.wetTo)} · מעיל`)
       : tile("✨", "שעת הזהב", `${E.hm(gold[0][0])}–${E.hm(gold[0][1])}`, `ערב ${E.hm(gold[1][0])}–${E.hm(gold[1][1])}`),
     tile("🌅", "זריחה · שקיעה", `${E.hm(r.win.sunrise)} · ${E.hm(r.win.sunset)}`, `אור ראשון ${E.hm(r.win.dawn)} · אחרון ${E.hm(r.win.dusk)}`),
@@ -429,6 +438,7 @@ function renderTripCard() {
   loadHolidays(); loadModels(b);
   const L = window.LEGAL || {}, bath = L.bathing && L.bathing[b.name], areas = (L.areas && L.areas[b.name]) || [], cams = (L.webcams && L.webcams[b.name]) || [];
   const mo = +state.day.slice(5, 7), lines = [];
+  if (b.legal) lines.push(`⚖️ ${esc(b.legal)}`); // v3.9.2: the beach's legal note lives here, once, next to the actions
   const cr = crowdTxt(state.day); if (cr) lines.push(esc(cr));
   const ag = agreementTxt(b, s); if (ag) lines.push(ag);
   // declared bathing place: the 2016 order (sec. 27) forbids fishing in it with no time limit; in practice it is enforced in the bathing season
@@ -438,7 +448,7 @@ function renderTripCard() {
   if (cams.length) lines.push(`📹 מצלמות חוף: ${cams.slice(0, 3).map(c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>`).join(" · ")}`);
   const ll = `${b.lat},${b.lon}`;
   el.innerHTML = `<h2>🧭 לפני שיוצאים</h2>${lines.length ? `<ul class="trip-lines">${lines.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}
-    <div class="trip-actions"><button type="button" id="sharePlan">📤 שיתוף התוכנית</button><button type="button" id="shareLoc">📍 שליחת המיקום שלי</button><button type="button" id="checkHere">🛑 מותר לדוג כאן?</button></div><p class="hint" id="checkHereOut" role="status" aria-live="polite"></p>
+    <div class="trip-actions"><a class="primary" href="https://waze.com/ul?ll=${ll}&navigate=yes" target="_blank" rel="noopener">🚗 ניווט ב-Waze</a><a href="https://www.google.com/maps/dir/?api=1&destination=${ll}" target="_blank" rel="noopener">🗺️ Google Maps</a><button type="button" id="sharePlan">📤 שיתוף התוכנית</button><button type="button" id="shareLoc">📍 שליחת המיקום שלי</button><button type="button" id="checkHere">🛑 מותר לדוג כאן?</button></div><p class="hint" id="checkHereOut" role="status" aria-live="polite"></p>
     <details class="sos"><summary>🆘 חירום</summary><p class="sos-nums">${EMERGENCY.map(([n, t]) => `<a href="tel:${n.replace(/-/g, "")}" class="sos-n"><b dir="ltr">${n}</b> ${t}</a>`).join("")}</p>
     <p class="hint">עקיצה של דג ארסי (דרקון, זהרון, סיכן, עקרבנון): מים חמים ככל שאפשר לסבול (43–45°) 30–90 דקות. בליעה של דג רעיל או קוצר נשימה — 101 מיד. נפילה מסלע או שובר: לא להזיז את הנפגע.</p></details>`;
   $("#sharePlan").onclick = () => {
@@ -461,10 +471,10 @@ function renderToday() {
   dayChips($("#dayChips"), state.day, k => { state.day = k; renderToday(); });
   const boat = state.boat && canBoat(b);
   const r = beachDay(b, state.day, boat);
-  const gold = E.goldenHours(state.day, b.lat, b.lon), best = E.bestHour(state.day === todayKey() ? r.rows.filter(q => q.T >= Date.now() - HOUR_MS) : r.rows, state.day, ahead(r.sessions, state.day), r.safeOf);
-  $("#beachHead").innerHTML = beachHeadHtml(b, r, gold, best, boat);
+  const gold = E.goldenHours(state.day, b.lat, b.lon), dw = dayWindow(b, r, state.day);
+  $("#beachHead").innerHTML = beachHeadHtml(b, r, gold, boat);
   const bt = $("#boatToggle"); if (bt) bt.onchange = () => { state.boat = bt.checked; renderToday(); };
-  $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b)).join("");
+  $("#sessions").innerHTML = r.sessions.map(s => sessionCard(s, b, dw.rec)).join("");
   $$("#sessions .lure-link").forEach(btn => btn.onclick = () => lureCard(btn.dataset.code));
   $$("#sessions .fish-link").forEach(btn => btn.onclick = () => fishCard(btn.dataset.fish));
   // hourly safety strip (Cormorant mechanics), all 24 hours
@@ -472,7 +482,7 @@ function renderToday() {
   $("#hourly").innerHTML = r.rows.map(x => {
     const sf = E.safety(x, safetyCtx(b, x)), c = sf.score, h = E.il(x.T).h, f = sf.f, cap = zoneWarning(b, x.T); if (cap) capHours.push(h);
     const tip = `${sf.level} · רוח ${fmtNum(x.wind / 1.852)} קשר${x.gust != null ? `, משבים ${fmtNum(x.gust / 1.852)}` : ""} · גל ${fmtNum(x.wave)} ס״מ${x.mm ? ` · גשם ${fmtNum(x.mm, 1)} מ״מ` : ""}${cap ? " · אזהרה רשמית: תקרה 40" : ""}`;
-    return `<div class="hr ${sf.cls}${best && best.h === h ? " is-best" : ""}${cap ? " is-capped" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
+    return `<div class="hr ${sf.cls}${cap ? " is-capped" : ""}" title="${esc(tip)}"><span class="hr-bar" style="--v:${c}"></span><b>${c}</b><small>${h}:00</small></div>`;
   }).join("");
   // v3.9.1: one line says what the dashed columns mean, instead of 24 identical "40"s explaining themselves
   let capNote = $("#hourlyCap"); if (!capNote) { capNote = document.createElement("p"); capNote.id = "hourlyCap"; capNote.className = "hourly-cap"; $("#hourly").before(capNote); }
@@ -484,7 +494,8 @@ function renderToday() {
   renderSpots(b); renderTripCard();
   if (window.FISHING_DASHBOARD) {
     $("#fishingDashboard").setAttribute("aria-busy", "false");
-    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b), warnings: beachWarnings(b), warnAt: T => zoneWarning(b, T), kinneret: FC.official && FC.official.kinneret || null });
+    FISHING_DASHBOARD.render({ b, r, E, key: state.day, onFish: fishCard, onLure: lureCard, onTab: setTab, onBeach: name => { pickBeach(name); fillPicker(); window.scrollTo({top:0,behavior:"smooth"}); }, loadLeaflet, beaches: BEACHES, lureImage: lureTypeImage, whyHere: s => whyHereBrief(s, b), warnings: beachWarnings(b), warnAt: T => zoneWarning(b, T), kinneret: FC.official && FC.official.kinneret || null, window: dw });
+    const go = $("#dashGo"), tc = $("#tripCard"); if (go && tc) go.append(tc); // v3.9.2: "before you go" sits between the chart and "what to take"
   }
 }
 

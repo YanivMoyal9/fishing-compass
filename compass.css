@@ -63,6 +63,7 @@ body{background:var(--ground);padding-bottom:84px}
 .sess.is-na{opacity:.6}
 .sess.is-past{opacity:.72}
 .past-tag{font:600 12px Assistant,sans-serif;background:#e6eeec;color:var(--muted);border-radius:6px;padding:1px 6px;vertical-align:middle}
+.win-tag{font:700 12px var(--font-body);background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold-line);border-radius:6px;padding:1px 6px;vertical-align:middle;white-space:nowrap}
 .card-lite{background:#fff;border-radius:16px;padding:12px 14px;margin:12px 0}
 .card-lite h2{margin:0;font-size:18px}
 .hourly{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
