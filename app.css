@@ -1539,3 +1539,20 @@ html{scroll-behavior:auto}
 /* ---- תיקוני איחוד (v3.10.0): כלל שהיה תלוי בסדר הטעינה של שני גיליונות ---- */
 /* כפתור ערכה שהוא גם קישור-דמוי (.kit-open.lure-link בדיאלוג הדג): הרדיוס של .kit-open ניצח את .lure-link כי coastal.css נטען אחרי theme.css */
 .kit-open.lure-link{border-radius:12px}
+/* ---- v3.11: "נמדד עכשיו" — מדידות 10 דקות מתחנת השירות המטאורולוגי הקרובה (dashboard.js nowCard) ---- */
+.dash-now-host:empty{display:none}
+.dash-now .dash-panel-head>span{font-size:12px;color:var(--muted);text-align:left}
+.dash-now .now-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.dash-now .now-grid>div{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--surface-2);min-width:0}
+.dash-now .now-grid span{font-size:13px;color:var(--ink-2)}
+.dash-now .now-grid strong{font:800 24px/1.25 var(--font-display);color:var(--deep);white-space:nowrap}
+.dash-now .now-grid strong small{font-size:13px;font-weight:600}
+.dash-now .now-grid div>small{font-size:12px;color:var(--muted);line-height:1.5}
+.dash-now .now-src{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.6}
+.dash-now.is-alert{border-color:var(--warn-line)}
+.dash-now.is-alert .now-grid>div:nth-child(-n+2){background:var(--warn-bg);border-color:var(--warn-line)}
+@media(max-width:720px){
+ .dash-now .now-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .dash-now .now-grid strong{font-size:21px}
+ .dash-now .dash-panel-head>span{flex:1 0 100%;text-align:right}
+}
