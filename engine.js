@@ -262,6 +262,17 @@ function safety(r, o = {}) {
 const comfort = (r, o) => safety(r, o).score;
 
 const level = s => s >= 80 ? { t: "מצוין", c: "lv-top" } : s >= 65 ? { t: "טוב מאוד", c: "lv-good" } : s >= 50 ? { t: "טוב", c: "lv-ok" } : s >= 35 ? { t: "בינוני", c: "lv-mid" } : { t: "חלש", c: "lv-low" };
+/* ---------- display scale (v3.12, approved by the user 16/11/2026) ----------
+   The activity index is a linear model fitted to the Strike Point session scores; it predicts the expected value and therefore lives in
+   ~45–69, while the site's own scale spans 26–100 around the same median (58). show() stretches only the NUMBER the user sees around that
+   median (×2.86, fitted on 2,706 Mediterranean sessions 26/10–5/11; held-out: overall MAE 10.0 vs 10.4, error on site ≥80 days 9.7 vs 21.3,
+   docs/strike-point/19 "מתיחת תצוגה"). Every decision — windows, rankings, best session, hour curve — still uses the raw index, so the order
+   of beaches, days and hours is unchanged. level() takes the SHOWN number. showPts() scales a factor's points the same way, so the factors
+   still add up to the shown score. */
+const SHOW = { mid: 58, k: 2.86 };
+// Fitted on the Mediterranean only: the Kinneret (lake model) and Eilat scores keep their own scale (water = beach.water).
+const show = (s, water = "med") => s == null || !Number.isFinite(+s) ? s : water !== "med" ? Math.round(+s) : Math.max(5, Math.min(100, Math.round(SHOW.mid + (+s - SHOW.mid) * SHOW.k)));
+const showPts = (p, water = "med") => water !== "med" ? p : p * SHOW.k;
 
 /* ---------- water temperature for a species (v3.5) ----------
    sp.t4 = [lives from, ideal from, ideal to, lives to] °C (data/species-plus.js, after Hooked); older entries only have sp.temp = the
@@ -638,5 +649,5 @@ function bestWindow(curve, fromT) {
   return best;
 }
 
-window.ENGINE = { il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, tempFit, currentAdvice, rainWatch, curMean, depthProfile, depthAt, distFor, castPlan, jigWeight, swellAdvice, moonLight, solunar };
+window.ENGINE = { show, showPts, SHOW, il, ilTime, hm, addDays, windows, moonEvents, tideExtremes, tidePhase, sessionInputs, seaIndex, seaIndexV1, SEA_W, lakeIndex, tip, comfort, level, fishFor, whereToday, whereScore, goToday, stripContext, stripAdjust, luresFor, speciesFit, goldenHours, bestHour, safety, hourIndex, hourCurve, bestWindow, HOUR_W, HOUR, EVIDENCE, tempFit, currentAdvice, rainWatch, curMean, depthProfile, depthAt, distFor, castPlan, jigWeight, swellAdvice, moonLight, solunar };
 })();

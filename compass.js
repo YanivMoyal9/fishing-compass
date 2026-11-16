@@ -295,13 +295,13 @@ const evChip = ev => { const e = ev && E.EVIDENCE && E.EVIDENCE[ev]; return e ? 
 function sessionCard(s, b, rec) {
   if (s.na) return `<article class="sess is-na"><h3>${s.name}</h3><p>אין נתונים לשעות האלה</p></article>`;
   const inWindow = rec && (rec.start + rec.end) / 2 >= s.start && (rec.start + rec.end) / 2 <= s.end; // v3.9.2: the one "when" of the day lives in the dashboard card
-  const lv = E.level(s.score), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
+  const lv = E.level(E.show(s.score, b.water)), x = s.x, fish = E.fishFor(b, +state.day.slice(5, 7), x.sst);
   const lures = E.luresFor(fish.now, s.tip.layer).slice(0, 3);
   const past = x.T1 < Date.now();
   const fishLayer = fish.now.filter(r => !r.sp.bait && (r.sp.layer === "all" || r.sp.layer === s.tip.layer)).slice(0, 5).map(r => r.sp);
   return `<article class="sess ${lv.c}${past ? " is-past" : ""}">
     <header><h3>${s.name}${past ? ' <small class="past-tag">עבר</small>' : ""}${inWindow ? ' <small class="win-tag">בתוך החלון המומלץ</small>' : ""}</h3><span class="sess-time">${E.hm(s.start)}–${E.hm(s.end)}</span></header>
-    <div class="sess-score"><b>${s.score}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
+    <div class="sess-score"><b>${E.show(s.score, b.water)}</b><span>${lv.t}</span>${s.safe ? `<em class="safe-chip ${safeCls(s.safe.avg)}" title="בטיחות ונוחות: רוח, משבים, גלים, גשם, ראות, חום ואור. מינימום בחלון: ${s.safe.min}">בטיחות ${s.safe.avg}</em>` : ""}</div>
     ${s.safe && s.safe.min < 30 ? `<p class="danger">⛔ תנאים מסוכנים בחלק מהחלון (בטיחות ${s.safe.min}) — לא לעלות על שוברים וסלעים</p>` : s.safe && s.safe.min < 50 && !cappedByWarning(b, x) ? `<p class="caution">⚠️ תנאים קשים בחלק מהחלון (בטיחות ${s.safe.min})</p>` : ""}
     <p class="sess-tip"><span class="tip-ico" aria-hidden="true">${s.tip.layer === "upper" ? "⬆" : "⬇"}</span>${esc(s.tip.text)}</p>
     ${whyHereHtml(s, b, past)}
@@ -315,7 +315,7 @@ function sessionCard(s, b, rec) {
     </dl>
     ${fishLayer.length ? `<p class="sess-fish"><b>דגים לשכבה הזו:</b> ${fishLayer.map(f => `<button type="button" class="fish-link" data-fish="${f.id}">${esc(f.name)}</button>`).join(" · ")}</p>` : ""}
     ${lures.length ? `<p class="sess-lures"><b>דמויים:</b> ${lures.map(c => `<button type="button" class="lure-link" data-code="${c}">${esc(LURE_TYPES[c])}</button>`).join(" ")}</p>` : ""}
-    <details class="why"><summary>למה ${s.score}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? f.pts.toFixed(1) : ""}</span> ${esc(f.label)}${evChip(f.ev)}</li>`).join("")}</ul>${s.factors.some(f => f.ev) ? `<p class="hint">התווית: חוזק הראיה במחקר שלנו מול ציוני Strike Point. חזק = פוענח · בינוני = נמצאה השפעה, לא מדויקת · חלש = השפעה קטנה · השערה = לא נמדד.</p>` : ""}</details>
+    <details class="why"><summary>למה ${E.show(s.score, b.water)}?</summary><ul>${s.factors.map(f => `<li><span class="${f.pts > 0 ? "pos" : f.pts < 0 ? "neg" : ""}">${f.pts > 0 ? "+" : ""}${f.pts ? E.showPts(f.pts, b.water).toFixed(1) : ""}</span> ${esc(f.label)}${evChip(f.ev)}</li>`).join("")}</ul>${s.factors.some(f => f.ev) ? `<p class="hint">התווית: חוזק הראיה במחקר שלנו מול ציוני Strike Point. חזק = פוענח · בינוני = נמצאה השפעה, לא מדויקת · חלש = השפעה קטנה · השערה = לא נמדד.</p>` : ""}</details>
   </article>`;
 }
 // official IMS forecast for the beach's zone and day; warnings; Kinneret level
@@ -665,7 +665,7 @@ function renderRank() {
     return { b, s, w, ws: E.whereScore(w), safeMin: s.safe ? s.safe.min : -1, reason };
   }).filter(Boolean).sort((a, c) => c.s.score - a.s.score || c.safeMin - a.safeMin || c.ws - a.ws || a.b.name.localeCompare(c.b.name, "he"));
   renderGoToday(rows);
-  $("#rankList").innerHTML = rankListHtml(rows.map(({ b, s, reason }) => ({ b, cls: E.level(s.score).c, v: s.score,
+  $("#rankList").innerHTML = rankListHtml(rows.map(({ b, s, reason }) => ({ b, cls: E.level(E.show(s.score, b.water)).c, v: E.show(s.score, b.water),
     sub: `${esc(b.region)}${reason ? ` · ${esc(reason.text)}` : ""}`, rs: `${s.name} ${E.hm(s.start)}${s.safe ? ` · <em class="safe-chip ${safeCls(s.safe.avg)}">בטיחות ${s.safe.avg}</em>` : ""}`,
     flags: `${closedAt(b) ? `<span class="rl" title="${esc(closedAt(b).name)}: ${esc(closedAt(b).rule || "")}">⛔</span>` : ""}${b.legal ? `<span class="rl" title="${esc(b.legal)}">⚖️</span>` : ""}` })), state.rankRegion === "all" ? "" : state.rankRegion);
   $$("#rankList .rank-row, #goToday .go-row").forEach(btn => btn.onclick = () => { state.day = state.rankDay; pickBeach(btn.dataset.b); fillPicker(); setTab("today"); });
@@ -1109,7 +1109,7 @@ function snapshot(b, date, T) {
 }
 const logLine = c => {
   const trip = c.fish === NONE;
-  return `<li${trip ? ' class="trip"' : ""}><b>${trip ? "יציאה בלי תפיסה" : esc(c.fish)}</b>${c.released ? ' <em class="rel-tag">שוחרר</em>' : ""} · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.hours ? ` · ${esc(c.hours)} שעות` : ""}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${condTxt(c)}${c.snap && c.snap.score != null ? ` · <span class="log-cond">מדד ${esc(c.snap.score)}</span>` : ""}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
+  return `<li${trip ? ' class="trip"' : ""}><b>${trip ? "יציאה בלי תפיסה" : esc(c.fish)}</b>${c.released ? ' <em class="rel-tag">שוחרר</em>' : ""} · ${esc(c.beach)} · ${esc(c.date)} ${esc(c.time || "")}${c.hours ? ` · ${esc(c.hours)} שעות` : ""}${c.lure ? " · " + esc(LURE_TYPES[c.lure] || c.lure) : ""}${c.len ? ` · ${esc(c.len)} ס״מ` : ""}${c.dist ? ` · ${esc(c.dist)} מ׳ מהחוף` : ""}${condTxt(c)}${c.snap && c.snap.score != null ? ` · <span class="log-cond">מדד ${esc(E.show(c.snap.score, (beachByName(c.beach) || {}).water))}</span>` : ""}${c.notes ? `<br><small>${esc(c.notes)}</small>` : ""}
       <button type="button" class="del" data-id="${esc(c.id)}" aria-label="מחיקה">✕</button></li>`; };
 function renderLog() {
   const list = store.get(LOG_KEY, []);
@@ -1160,7 +1160,7 @@ function setupLog() {
     const all = store.get(LOG_KEY, []); if (!all.length) return;
     const head = ["date", "time", "beach", "fish", "released", "lure", "length_cm", "distance_m", "hours", "pressure", "wave_cm", "wind_kmh", "sst", "session", "index", "safety", "tide_phase", "moon", "notes"];
     const csv = [head.join(",")].concat(all.map(c => [c.date, c.time, c.beach, c.fish === NONE ? "(no catch)" : c.fish, c.released ? 1 : 0, c.lure, c.len, c.dist, c.hours, c.cond && c.cond.p, c.cond && c.cond.wave, c.cond && c.cond.wind, c.cond && c.cond.sst,
-      c.snap && c.snap.sess, c.snap && c.snap.score, c.snap && c.snap.safe, c.snap && c.snap.tide, c.snap && c.snap.moon, c.notes].map(csvCell).join(","))).join("\n");
+      c.snap && c.snap.sess, c.snap && E.show(c.snap.score, (beachByName(c.beach) || {}).water), c.snap && c.snap.safe, c.snap && c.snap.tide, c.snap && c.snap.moon, c.notes].map(csvCell).join(","))).join("\n");
     download(new Blob(["﻿" + csv], { type: "text/csv" }), "fishing-compass-catches.csv");
   };
   $("#logBackup").onclick = () => { const all = store.get(LOG_KEY, []); if (!all.length) { logMsg("היומן ריק — אין מה לגבות."); return; }
