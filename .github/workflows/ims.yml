@@ -1,0 +1,36 @@
+# Live IMS station readings for the "נמדד עכשיו" card (v3.11).
+# Every 20 minutes: read the public IMS last-hour file, write ims.json, force-push it as a single commit to the data-ims branch.
+# The site (GitHub Pages from main) is not rebuilt; the app reads raw.githubusercontent.com/<repo>/data-ims/ims.json.
+name: IMS observations
+on:
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ims
+  cancel-in-progress: true
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read IMS
+        run: node .github/scripts/ims.mjs out
+      - name: Publish to data-ims
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f out/ims.json ]; then echo "no new file, the branch keeps the last good one"; exit 0; fi
+          cd out
+          git init -q -b data-ims
+          git add ims.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "IMS observations $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data-ims
